@@ -1,6 +1,6 @@
 // 站点基本信息。name / role 是占位，按需改。
 export const site = {
-  name: 'Roy Yu',
+  name: 'Yifan',
   role: 'AI Infra · Algorithm Research',
   bio: {
     work: '从零实现 LLM 训练与推理，也做不确定性量化的研究。',

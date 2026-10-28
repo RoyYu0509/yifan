@@ -354,3 +354,6 @@ a { color: inherit; text-decoration: none; }
 .profile .hero { margin-left: -18px; padding: 14px 18px 16px; background: linear-gradient(90deg, rgba(3, 9, 12, 0.72) 70%, transparent); }
 .edu ul { margin: 6px 0 0 1.2em; font-size: 16px; }
 .edu .courses { font-size: 15px; }
+
+/* work 页的底部留出一段空地：滚到页尾时，画面底部的入口不会被内容盖住 */
+:root[data-world='work'] main { padding-bottom: clamp(150px, 26vh, 280px); }
