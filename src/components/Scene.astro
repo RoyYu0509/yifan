@@ -1,0 +1,43 @@
+---
+// 全屏像素背景：低分辨率 canvas 放大渲染 (image-rendering: pixelated)。
+// 当前画哪个世界取决于 <html data-world>，页面切换时会自动换。
+---
+<canvas id="scene" width="320" height="180" transition:persist aria-hidden="true"></canvas>
+
+<script>
+  import { W, H, type Scene } from '../scripts/scene/common';
+  import { createOffScene } from '../scripts/scene/off';
+  import { createWorkScene } from '../scripts/scene/work';
+
+  const canvas = document.getElementById('scene') as HTMLCanvasElement;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const scenes: Record<string, Scene> = {};
+  const get = (id: string): Scene => (scenes[id] ??= id === 'off' ? createOffScene() : createWorkScene());
+
+  let mx = 0, my = 0, tx = 0, ty = 0;
+  window.addEventListener('pointermove', (e) => {
+    tx = e.clientX / innerWidth - 0.5;
+    ty = e.clientY / innerHeight - 0.5;
+  }, { passive: true });
+
+  let last = performance.now();
+  let t = 0;
+  function frame(now: number) {
+    requestAnimationFrame(frame);
+    if (document.hidden) { last = now; return; }
+    const root = document.documentElement;
+    const calm = root.dataset.fx === 'calm';
+    // calm 只影响亮度 / 光晕 (见 global.css)，场景里的动画完整保留
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (!reduce) t += dt;
+    mx += (tx - mx) * 0.04;
+    my += (ty - my) * 0.04;
+    ctx.clearRect(0, 0, W, H);
+    get(root.dataset.world || 'work').draw(ctx, t, dt, mx, my, { reduce, calm, hot: root.dataset.hot === '1' });
+  }
+  requestAnimationFrame(frame);
+</script>

@@ -1,0 +1,16 @@
+{
+  "name": "end-of-the-world",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev --host",
+    "build": "astro build",
+    "preview": "astro preview --host"
+  },
+  "dependencies": {
+    "@fontsource/dotgothic16": "^5.3.1",
+    "@fontsource/vt323": "^5.3.0",
+    "astro": "^7.4.1"
+  }
+}

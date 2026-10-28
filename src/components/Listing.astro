@@ -1,0 +1,23 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { pathOf, worldOfKind } from '../data/worlds';
+interface Props { entries: CollectionEntry<'posts'>[]; kindTag?: boolean; summary?: boolean }
+const { entries, kindTag = false, summary = true } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const fmt = (d: Date) => d.toISOString().slice(0, 10);
+---
+{entries.length === 0 ? (
+  <p class="empty">还没有内容。</p>
+) : (
+  <ul class="listing">
+    {entries.map((e) => (
+      <li>
+        <a href={`${base}${pathOf(worldOfKind(e.data.kind), e.data.kind)}${e.id}/`}>
+          <span class="d">{fmt(e.data.date)}</span>
+          <span class="t">{kindTag ? `[${e.data.kind}] ` : ''}{e.data.title}</span>
+          {summary && e.data.summary && <span class="s">{e.data.summary}</span>}
+        </a>
+      </li>
+    ))}
+  </ul>
+)}

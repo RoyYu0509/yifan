@@ -1,0 +1,159 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import '@fontsource/vt323/400.css';
+import '@fontsource/dotgothic16/400.css';
+import '../styles/global.css';
+import Scene from '../components/Scene.astro';
+import TitleCard from '../components/TitleCard.astro';
+import BgmPlayer from '../components/BgmPlayer.astro';
+import FxToggle from '../components/FxToggle.astro';
+import { getCollection } from 'astro:content';
+import { site } from '../data/site';
+import { worlds, homeOf, pathOf, type WorldId } from '../data/worlds';
+
+interface Props {
+  world: WorldId;
+  title?: string;
+  description?: string;
+}
+const { world, title, description = `${site.name} — ${site.bio.work}` } = Astro.props;
+const w = worlds[world];
+const other = w.other;
+// 还没有内容的栏目先不出现在导航里，发布第一篇之后自动出现
+const posts = await getCollection('posts', (e) => !e.data.draft);
+const navSections = w.sections.filter((s) => !s.kind || posts.some((p) => p.data.kind === s.kind));
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.sub[world]}`;
+---
+<!doctype html>
+<html lang="zh-CN" data-world={world}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#05070c" />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <title>{fullTitle}</title>
+    <ClientRouter />
+    <!-- 视觉强度：calm (安静) / full (完整)。work 默认 calm，off 默认 full，访客可以自己切换并记住 -->
+    <script is:inline>
+      (function () {
+        var r = document.documentElement;
+        var apply = function () {
+          var pref = null;
+          try { pref = localStorage.getItem('fx'); } catch (e) {}
+          var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+          r.dataset.fx = reduced ? 'calm' : pref || (r.dataset.world === 'off' ? 'full' : 'calm');
+        };
+        apply();
+        document.addEventListener('astro:after-swap', apply);
+        try { if (sessionStorage.getItem('intro')) r.dataset.intro = 'skip'; } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <Scene />
+    <!-- 画面里的入口：位置在 global.css 里按世界设定，平时完全不可见 -->
+    <button
+      class="portal"
+      type="button"
+      data-shuffle={`${base}${homeOf(other)}`}
+      aria-label={other === 'off' ? 'after hours' : 'back to work'}
+    ></button>
+
+    <div class="fx fx-grain" aria-hidden="true"></div>
+    <div class="fx fx-scan" aria-hidden="true"></div>
+    <div class="fx fx-vignette" aria-hidden="true"></div>
+    <div class="fx fx-lantern" aria-hidden="true"></div>
+
+    <div class="shell">
+      <header class="topbar">
+        <a class="world-label" href={`${base}${homeOf(world)}`}>
+          <span class="zh">{site.name}</span>
+          <span class="en">{site.sub[world]}</span>
+        </a>
+        <nav class="nav">
+          {navSections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
+        </nav>
+      </header>
+
+      <main>
+        <slot />
+      </main>
+
+      <footer class="footbar">
+        <span class="copy">© {new Date().getFullYear()} {site.name}</span>
+        <span class="controls">
+          <FxToggle />
+          <BgmPlayer />
+        </span>
+      </footer>
+    </div>
+
+    <TitleCard world={world} />
+
+    <script>
+      const root = document.documentElement;
+
+      // 手电光 + off 里标题的 text-shadow：两者都挂在 <html> 的 CSS 变量上，body 被 swap 后依然有效
+      let nx = 0, ny = 0, sx = 0, sy = 0;
+      window.addEventListener(
+        'pointermove',
+        (e) => {
+          root.style.setProperty('--mx', e.clientX + 'px');
+          root.style.setProperty('--my', e.clientY + 'px');
+          nx = e.clientX / innerWidth - 0.5;
+          ny = e.clientY / innerHeight - 0.5;
+        },
+        { passive: true },
+      );
+      (function tick() {
+        sx += (-nx * 18 - sx) * 0.05; // 慢半拍地追上
+        sy += (3 + -ny * 8 - sy) * 0.05;
+        root.style.setProperty('--sx', sx.toFixed(1) + 'px');
+        root.style.setProperty('--sy', sy.toFixed(1) + 'px');
+        requestAnimationFrame(tick);
+      })();
+
+      // 入口的悬停 / 聚焦反馈 (由 scene 读取 data-hot)
+      const hot = (on: boolean) => (e: Event) => {
+        if ((e.target as HTMLElement).closest?.('.portal')) {
+          if (on) root.dataset.hot = '1';
+          else delete root.dataset.hot;
+        }
+      };
+      document.addEventListener('pointerover', hot(true));
+      document.addEventListener('pointerout', hot(false));
+      document.addEventListener('focusin', hot(true));
+      document.addEventListener('focusout', hot(false));
+      document.addEventListener('astro:before-swap', () => delete root.dataset.hot);
+
+      // work 里的标题：进入时先打乱再逐字归位
+      const SCRAMBLE = '▓▒░#%&@01<>/\\';
+      async function scramble(el: HTMLElement) {
+        const final = el.dataset.scramble || el.textContent || '';
+        el.dataset.scramble = final;
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches || root.dataset.fx === 'calm') { el.textContent = final; return; }
+        const steps = 18;
+        for (let i = 0; i <= steps; i++) {
+          const keep = Math.floor((final.length * i) / steps);
+          let out = final.slice(0, keep);
+          for (let k = keep; k < final.length; k++) out += final[k] === ' ' ? ' ' : SCRAMBLE[(Math.random() * SCRAMBLE.length) | 0];
+          el.textContent = out;
+          await new Promise((r) => setTimeout(r, 32));
+        }
+      }
+      document.addEventListener('astro:page-load', async () => {
+        const els = Array.from(document.querySelectorAll<HTMLElement>('[data-scramble]'));
+        if (!els.length) return;
+        // 安静模式下标题直接显示，不做打乱动画
+        if (root.dataset.fx === 'calm') return;
+        els.forEach((el) => { el.dataset.scramble ||= el.textContent || ''; el.textContent = ''; });
+        await (window as unknown as { __titleReady?: Promise<void> }).__titleReady;
+        els.forEach(scramble);
+      });
+
+      console.log('%c墙很高，门已经关上了。', 'color:#e8d9a8');
+    </script>
+  </body>
+</html>

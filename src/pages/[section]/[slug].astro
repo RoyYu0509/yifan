@@ -1,0 +1,11 @@
+---
+import { getCollection } from 'astro:content';
+import EntryPage from '../../components/EntryPage.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts', (e) => !e.data.draft && ['blog', 'log', 'docs'].includes(e.data.kind));
+  return posts.map((entry) => ({ params: { section: entry.data.kind, slug: entry.id }, props: { entry } }));
+}
+const { entry } = Astro.props;
+---
+<EntryPage entry={entry} />

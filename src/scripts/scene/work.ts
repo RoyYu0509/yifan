@@ -1,0 +1,229 @@
+import { H, W, clamp, ditherSky, layer, makeRng, type Layer, type Scene } from './common';
+
+// work：雨夜的城市。两块相对的霓虹，高架上的车灯，
+// 地下入口里偶尔亮起的一对眼睛 —— 那是通往另一面的入口 (见 Base.astro 的 .portal)。
+const GROUND = 150;
+const PAD = 14;
+
+const GLYPH: Record<string, string[]> = {
+  S: ['111', '100', '111', '001', '111'],
+  Y: ['101', '101', '010', '010', '010'],
+  T: ['111', '010', '010', '010', '010'],
+  E: ['111', '100', '110', '100', '111'],
+  M: ['101', '111', '111', '101', '101'],
+  F: ['111', '100', '110', '100', '100'],
+  A: ['010', '101', '111', '101', '101'],
+  C: ['011', '100', '100', '100', '011'],
+  O: ['111', '101', '101', '101', '111'],
+  R: ['110', '101', '110', '101', '101'],
+};
+
+function text(ctx: CanvasRenderingContext2D, s: string, x: number, y: number) {
+  let cx = x;
+  for (const ch of s) {
+    const g = GLYPH[ch];
+    if (g) g.forEach((row, r) => { for (let c = 0; c < 3; c++) if (row[c] === '1') ctx.fillRect(cx + c, y + r, 1, 1); });
+    cx += 4;
+  }
+}
+
+interface Win { x: number; y: number; c: string; ph: number; flick: boolean }
+
+export function createWorkScene(): Scene {
+  const rnd = makeRng(1985);
+  const LW = W + PAD * 2;
+
+  const sky = layer();
+  ditherSky(sky.x, [[0, '#02050a'], [0.45, '#07141c'], [0.8, '#12303a'], [1, '#3a2c48']], GROUND);
+
+  const WINC = ['#f0e6a0', '#9fe8e0', '#ffffff', '#e8a0c0', '#f0e6a0'];
+  const tops: { x: number; y: number }[] = [];
+
+  function skyline(color: string, base: number, hMin: number, hMax: number, wMin: number, wMax: number, winP: number, collectTops = false) {
+    const l: Layer = layer(LW, H);
+    const wins: Win[] = [];
+    let x = -4;
+    while (x < LW) {
+      const w = Math.round(wMin + rnd() * (wMax - wMin));
+      const h = Math.round(hMin + rnd() * (hMax - hMin));
+      l.x.fillStyle = color;
+      l.x.fillRect(x, base - h, w, h + 40);
+      if (rnd() > 0.7) l.x.fillRect(x + (w >> 1), base - h - 4 - ((rnd() * 6) | 0), 1, 8); // antenna
+      if (collectTops && h > hMax * 0.75) tops.push({ x: x + (w >> 1), y: base - h - 1 });
+      for (let wx = x + 2; wx < x + w - 2; wx += 3) {
+        for (let wy = base - h + 3; wy < base - 2; wy += 4) {
+          if (rnd() < winP) {
+            const c = WINC[(rnd() * WINC.length) | 0];
+            l.x.globalAlpha = 0.55 + rnd() * 0.4;
+            l.x.fillStyle = c;
+            l.x.fillRect(wx, wy, 2, 2);
+            l.x.globalAlpha = 1;
+            wins.push({ x: wx, y: wy, c, ph: rnd() * 10, flick: rnd() < 0.07 });
+          }
+        }
+      }
+      x += w + (rnd() > 0.6 ? 1 : 0);
+    }
+    return { l, wins };
+  }
+
+  const farSky = skyline('#0a1a24', GROUND - 28, 24, 78, 10, 24, 0.12);
+  const midSky = skyline('#071119', GROUND - 14, 20, 62, 12, 28, 0.2, true);
+  const nearSky = skyline('#03080c', GROUND, 8, 34, 16, 34, 0.22);
+
+  // ---- 地面 ----
+  const ground = layer();
+  for (let y = GROUND; y < H; y++) {
+    const t = (y - GROUND) / (H - GROUND);
+    ground.x.fillStyle = `rgb(${6 - t * 4 | 0},${12 - t * 8 | 0},${16 - t * 10 | 0})`;
+    ground.x.fillRect(0, y, W, 1);
+  }
+  // 高架
+  ground.x.fillStyle = '#04090d';
+  ground.x.fillRect(0, GROUND - 16, W, 3);
+  for (let x = 6; x < W; x += 34) ground.x.fillRect(x, GROUND - 13, 3, 13);
+
+  // 隧道口 (夜鬼的洞)
+  const tunnel = { x: 148, y: GROUND + 2, w: 30, h: 22 };
+  ground.x.fillStyle = '#010203';
+  ground.x.fillRect(tunnel.x, tunnel.y, tunnel.w, tunnel.h);
+  ground.x.fillRect(tunnel.x + 3, tunnel.y - 3, tunnel.w - 6, 3);
+  ground.x.fillStyle = '#12202a';
+  ground.x.fillRect(tunnel.x - 2, tunnel.y + tunnel.h, tunnel.w + 4, 1);
+  ground.x.fillRect(tunnel.x - 2, tunnel.y - 4, tunnel.w + 4, 1);
+  // 台阶
+  ground.x.fillStyle = '#0a141b';
+  for (let i = 0; i < 4; i++) ground.x.fillRect(tunnel.x + 2 + i * 2, tunnel.y + 14 + i * 2, tunnel.w - 4 - i * 4, 1);
+
+  const signs = [
+    { s: 'SYSTEM', x: 208, y: 70, c: '#5ff0d0', ph: 0 },
+    { s: 'FACTORY', x: 136, y: 108, c: '#ff4fa3', ph: 3 },
+  ];
+
+  const drops = Array.from({ length: 150 }, () => ({ x: rnd() * (W + 40), y: rnd() * H, v: 90 + rnd() * 70, l: 3 + ((rnd() * 3) | 0) }));
+  const cars = Array.from({ length: 6 }, () => ({ x: rnd() * W, v: (rnd() > 0.5 ? 1 : -1) * (18 + rnd() * 30), red: rnd() > 0.5 }));
+  let nextGlitch = 5 + rnd() * 4;
+  let glitchUntil = 0;
+  let eyesUntil = 0;
+  let nextEyes = 3;
+
+  return {
+    draw(ctx, t, dt, mx, my, { reduce, calm, hot }) {
+      ctx.drawImage(sky.c, 0, 0);
+
+      const par = (k: number) => Math.round(-PAD - mx * k);
+      ctx.drawImage(farSky.l.c, par(3), Math.round(-my));
+      ctx.drawImage(midSky.l.c, par(6), Math.round(-my * 2));
+
+      // 红色航空灯
+      const blink = Math.floor(t * 0.9) % 2 === 0;
+      if (blink || reduce) {
+        ctx.fillStyle = '#ff3b3b';
+        for (const p of tops) ctx.fillRect(Math.round(p.x - PAD - mx * 6), Math.round(p.y - my * 2), 1, 1);
+      }
+
+      // 霓虹
+      for (const sg of signs) {
+        const on = reduce || Math.sin(t * 7 + sg.ph) > -0.85;
+        const x = Math.round(sg.x - mx * 6);
+        const y = Math.round(sg.y - my * 2);
+        const w = sg.s.length * 4 + 3;
+        ctx.fillStyle = '#04090d';
+        ctx.fillRect(x - 2, y - 2, w + 1, 10);
+        ctx.fillStyle = sg.c;
+        ctx.globalAlpha = calm ? 0.06 : on ? 0.18 : 0.05;
+        ctx.fillRect(x - 5, y - 5, w + 7, 16);
+        ctx.globalAlpha = on ? 1 : 0.25;
+        text(ctx, sg.s, x, y);
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.drawImage(nearSky.l.c, par(10), Math.round(-my * 3));
+
+      // 窗子偶尔熄灭
+      if (!reduce) {
+        for (const sl of [midSky, nearSky]) {
+          const k = sl === midSky ? 6 : 10;
+          const base = sl === midSky ? 2 : 3;
+          for (const w of sl.wins) {
+            if (!w.flick) continue;
+            if (Math.sin(t * 0.7 + w.ph) > 0.2) {
+              ctx.fillStyle = '#03080c';
+              ctx.fillRect(Math.round(w.x - PAD - mx * k), Math.round(w.y - my * base), 2, 2);
+            }
+          }
+        }
+      }
+
+      ctx.drawImage(ground.c, 0, 0);
+
+      // 高架上的车灯
+      for (const c of cars) {
+        if (!reduce) { c.x += c.v * dt; if (c.x > W + 8) c.x = -8; if (c.x < -8) c.x = W + 8; }
+        const y = GROUND - 17;
+        ctx.fillStyle = c.v > 0 ? '#ffe9b0' : '#ff4a4a';
+        ctx.fillRect(Math.round(c.x), y, 2, 1);
+        ctx.fillStyle = c.v > 0 ? 'rgba(255,233,176,0.25)' : 'rgba(255,74,74,0.25)';
+        ctx.fillRect(Math.round(c.x) - (c.v > 0 ? 5 : -2), y, 5, 1);
+      }
+
+      // 湿地面的倒影
+      for (const sg of signs) {
+        const cx = Math.round(sg.x + (sg.s.length * 4) / 2 - mx * 6);
+        ctx.fillStyle = sg.c;
+        for (let i = 0; i < 26; i += 2) {
+          const y = GROUND + 4 + i;
+          ctx.globalAlpha = 0.12 * (1 - i / 26);
+          const w = sg.s.length * 4;
+          ctx.fillRect(cx - (w >> 1) + Math.round(Math.sin(t * 1.5 + i * 0.5)), y, w, 1);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // 入口里的眼睛：平时偶尔眨一下，鼠标靠近时一直亮着
+      {
+        if (t > nextEyes) { eyesUntil = t + 0.5 + rnd() * 1.2; nextEyes = t + 8 + rnd() * 8; }
+        const show = hot || (!reduce && t < eyesUntil);
+        // 入口上方的一盏灯，靠近时变亮
+        ctx.fillStyle = hot ? 'rgba(95,240,208,0.55)' : 'rgba(95,240,208,0.18)';
+        ctx.fillRect(tunnel.x + (tunnel.w >> 1) - 1, tunnel.y - 3, 3, 1);
+        if (show) {
+          ctx.fillStyle = '#ff2a2a';
+          const ex = tunnel.x + 8 + (hot ? 0 : (t * 3) % 2 < 1 ? 0 : 6);
+          ctx.fillRect(ex, tunnel.y + 12, 2, 1);
+          ctx.fillRect(ex + 5, tunnel.y + 12, 2, 1);
+          ctx.fillStyle = 'rgba(255,42,42,0.15)';
+          ctx.fillRect(ex - 1, tunnel.y + 11, 9, 3);
+        }
+      }
+
+      // 雨
+      {
+        ctx.fillStyle = 'rgba(160,210,220,0.32)';
+        for (const d of drops) {
+          if (!reduce) {
+            d.y += d.v * dt;
+            d.x -= d.v * 0.18 * dt;
+            if (d.y > H) { d.y = -4; d.x = rnd() * (W + 40); }
+            if (d.x < -4) d.x += W + 40;
+          }
+          for (let i = 0; i < d.l; i++) ctx.fillRect((d.x - i * 0.2) | 0, (d.y + i) | 0, 1, 1);
+          if (!reduce && d.y > GROUND + 4 && d.y < GROUND + 5.5) ctx.fillRect(((d.x) | 0) - 1, d.y | 0, 3, 1);
+        }
+      }
+
+      // 偶发的信号故障：横向切片错位
+      if (!reduce) {
+        if (t > nextGlitch) { glitchUntil = t + 0.16; nextGlitch = t + 7 + rnd() * 8; }
+        if (t < glitchUntil) {
+          for (let i = 0; i < 3; i++) {
+            const y = (rnd() * (H - 14)) | 0;
+            const h = 2 + ((rnd() * 8) | 0);
+            const dx = ((rnd() - 0.5) * 14) | 0;
+            ctx.drawImage(ctx.canvas, 0, y, W, h, dx, y, W, h);
+          }
+        }
+      }
+    },
+  };
+}

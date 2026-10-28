@@ -1,0 +1,162 @@
+---
+import { tracks } from '../data/bgm';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const list = Object.fromEntries(
+  Object.entries(tracks).map(([w, ts]) => [w, ts.map((t) => ({ title: t.title, src: `${base}/${t.src}` }))]),
+);
+---
+<button class="bgm" id="bgm" type="button" aria-pressed="false" aria-label="toggle background music" transition:persist data-tracks={JSON.stringify(list)}>
+  <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+  <span id="bgm-label">♪ BGM OFF</span>
+</button>
+
+<script>
+  const btn = document.getElementById('bgm') as HTMLButtonElement;
+  const label = document.getElementById('bgm-label')!;
+  const all: Record<string, { title: string; src: string }[]> = JSON.parse(btn.dataset.tracks || '{}');
+  const worldNow = () => document.documentElement.dataset.world || 'work';
+
+  let on = false;
+  let playing = ''; // 当前正在放的世界
+  let audio: HTMLAudioElement | null = null;
+  let idx = 0;
+
+  // ---- 没有 mp3 时的占位：WebAudio 合成 ambient ----
+  let ac: AudioContext | null = null;
+  let master: GainNode | null = null;
+  let timer: number | undefined;
+  const OFF_NOTES = [220, 261.63, 293.66, 329.63, 392, 440, 523.25, 587.33]; // A minor pentatonic
+  const WORK_NOTES = [329.63, 392, 493.88, 587.33, 698.46]; // 带一点不安的小二度
+
+  function startSynth(world: string) {
+    ac = new AudioContext();
+    ac.resume();
+    const ctx = ac;
+    master = ctx.createGain();
+    master.gain.value = 0;
+    master.gain.linearRampToValueAtTime(world === 'off' ? 0.5 : 0.45, ctx.currentTime + 3);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = world === 'off' ? 900 : 700;
+    const delay = ctx.createDelay(1);
+    delay.delayTime.value = world === 'off' ? 0.42 : 0.55;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.45;
+    delay.connect(fb).connect(delay);
+    lp.connect(master);
+    lp.connect(delay);
+    delay.connect(master);
+    master.connect(ctx.destination);
+
+    const pads: [number, number, OscillatorType][] =
+      world === 'off'
+        ? [[55, 0, 'triangle'], [82.41, 3, 'triangle'], [110, -4, 'triangle']]
+        : [[36.71, 0, 'sawtooth'], [55, 6, 'sawtooth'], [51.91, -5, 'sawtooth']];
+    for (const [f, d, type] of pads) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.value = f;
+      o.detune.value = d;
+      const g = ctx.createGain();
+      g.gain.value = world === 'off' ? 0.18 : 0.07;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 0.07 + Math.random() * 0.05;
+      const lg = ctx.createGain();
+      lg.gain.value = world === 'off' ? 0.08 : 0.03;
+      lfo.connect(lg).connect(g.gain);
+      o.connect(g).connect(lp);
+      o.start();
+      lfo.start();
+    }
+
+    if (world === 'work') {
+      // 雨声：带通白噪声
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 3200;
+      bp.Q.value = 0.6;
+      const ng = ctx.createGain();
+      ng.gain.value = 0.05;
+      src.connect(bp).connect(ng).connect(master);
+      src.start();
+    }
+
+    const notes = world === 'off' ? OFF_NOTES : WORK_NOTES;
+    const note = () => {
+      if (!ac || ac !== ctx) return;
+      const o = ctx.createOscillator();
+      o.type = world === 'off' ? 'sine' : 'square';
+      o.frequency.value = notes[(Math.random() * notes.length) | 0];
+      const g = ctx.createGain();
+      const t0 = ctx.currentTime;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(world === 'off' ? 0.12 : 0.03, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + (world === 'off' ? 4 : 1.6));
+      o.connect(g).connect(lp);
+      o.start(t0);
+      o.stop(t0 + 4.2);
+      timer = window.setTimeout(note, (world === 'off' ? 2500 : 3500) + Math.random() * 4500);
+    };
+    note();
+  }
+
+  function stopSynth() {
+    clearTimeout(timer);
+    if (!ac || !master) return;
+    const c = ac, m = master;
+    m.gain.cancelScheduledValues(c.currentTime);
+    m.gain.setValueAtTime(m.gain.value, c.currentTime);
+    m.gain.linearRampToValueAtTime(0, c.currentTime + 0.8);
+    setTimeout(() => c.close(), 1000);
+    ac = null;
+    master = null;
+  }
+
+  async function startFor(world: string) {
+    playing = world;
+    const list = all[world] || [];
+    if (list.length) {
+      audio ??= new Audio();
+      audio.loop = list.length === 1;
+      audio.volume = 0.5;
+      audio.onended = () => { idx = (idx + 1) % list.length; audio!.src = list[idx].src; audio!.play(); setUI(); };
+      idx = 0;
+      audio.src = list[0].src;
+      try { await audio.play(); } catch { on = false; }
+    } else {
+      startSynth(world);
+    }
+  }
+
+  function stopCurrent() {
+    audio?.pause();
+    stopSynth();
+  }
+
+  function setUI() {
+    btn.setAttribute('aria-pressed', String(on));
+    const list = all[playing] || [];
+    label.textContent = on ? `♪ BGM ON · ${list.length ? list[idx].title : 'ambient'}` : '♪ BGM OFF';
+  }
+
+  btn.addEventListener('click', async () => {
+    on = !on;
+    if (on) await startFor(worldNow());
+    else stopCurrent();
+    setUI();
+  });
+
+  // 换世界后，音乐跟着换
+  document.addEventListener('astro:after-swap', () => {
+    if (on && worldNow() !== playing) {
+      stopCurrent();
+      startFor(worldNow()).then(setUI);
+    }
+  });
+</script>

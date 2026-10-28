@@ -1,0 +1,138 @@
+---
+import { site } from '../data/site';
+// 标题卡：大标题永远是站点名，副标题随当前这一面变化
+const data = { work: { zh: site.name, en: site.sub.work }, off: { zh: site.name, en: site.sub.off } };
+---
+<!-- 开场 / 切换世界时的全屏标题卡。默认可见，由脚本负责淡出 (无 JS 时用 noscript 隐藏) -->
+<div id="title-card" class="title-card" transition:persist aria-hidden="true" data-world={Astro.props.world} data-worlds={JSON.stringify(data)}>
+  <canvas id="tc-static" width="160" height="90"></canvas>
+  <div class="tc-inner">
+    <div class="tc-big" id="tc-big"></div>
+    <div class="tc-en" id="tc-en"></div>
+  </div>
+</div>
+<noscript><style>.title-card { display: none; }</style></noscript>
+
+<script>
+  import { navigate } from 'astro:transitions/client';
+
+  const root = document.documentElement;
+  const card = document.getElementById('title-card') as HTMLElement;
+  const big = document.getElementById('tc-big')!;
+  const en = document.getElementById('tc-en')!;
+  const noise = document.getElementById('tc-static') as HTMLCanvasElement;
+  const nctx = noise.getContext('2d')!;
+  const data: Record<string, { zh: string; en: string }> = JSON.parse(card.dataset.worlds || '{}');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const w = window as unknown as { __titleReady: Promise<void> };
+  w.__titleReady = Promise.resolve();
+
+  // 可跳过的 sleep：点一下标题卡，所有等待立刻结束
+  let skip = false;
+  const waiters = new Set<() => void>();
+  const sleep = (ms: number) =>
+    new Promise<void>((resolve) => {
+      if (skip) return resolve();
+      const done = () => { clearTimeout(id); waiters.delete(done); resolve(); };
+      const id = setTimeout(done, ms);
+      waiters.add(done);
+    });
+  card.addEventListener('click', () => { skip = true; [...waiters].forEach((f) => f()); });
+
+  let noiseTimer: number | undefined;
+  function drawNoise() {
+    const img = nctx.createImageData(noise.width, noise.height);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() * 255;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    nctx.putImageData(img, 0, 0);
+  }
+  const startNoise = () => { if (noiseTimer === undefined && !reduce) { drawNoise(); noiseTimer = window.setInterval(drawNoise, 70); } };
+  const stopNoise = () => { clearInterval(noiseTimer); noiseTimer = undefined; };
+
+  let token = 0;
+  let current: string | null = null;
+  let busy = false;
+
+  // intro：打开网页时 (每个 session 只一次)；switch：从入口进入另一面时
+  async function playTitle(world: string, mode: 'intro' | 'switch') {
+    const my = ++token;
+    const d = data[world];
+    current = world;
+    delete root.dataset.intro;
+    skip = false;
+    // 安静模式下的开场只是名字淡入淡出：没有噪点、没有逐字、没有光晕
+    const calm = mode === 'intro' && (root.dataset.fx === 'calm' || reduce);
+    card.dataset.world = world;
+    card.classList.toggle('calm', calm);
+    card.classList.remove('hide', 'fast');
+    en.classList.remove('on');
+    let done!: () => void;
+    w.__titleReady = new Promise<void>((r) => (done = r));
+
+    if (calm) {
+      big.textContent = d.zh;
+      en.textContent = d.en;
+      en.classList.add('on');
+      await sleep(1000);
+    } else {
+      big.textContent = '';
+      en.textContent = '';
+      startNoise();
+      await sleep(reduce ? 80 : 380);
+      for (const ch of d.zh) {
+        if (my !== token) return;
+        big.textContent += ch;
+        await sleep(reduce ? 0 : 150);
+      }
+      en.textContent = d.en;
+      en.classList.add('on');
+      await sleep(reduce ? 900 : 1200);
+    }
+    if (my !== token) return;
+    card.classList.add('hide'); // 标题卡淡出，只留下左上角的名字
+    done();
+    if (mode === 'intro') { try { sessionStorage.setItem('intro', '1'); } catch {} }
+    await sleep(calm ? 500 : 1000);
+    if (my === token) { stopNoise(); busy = false; }
+  }
+
+  async function shuffle(target: string) {
+    if (busy) return;
+    busy = true;
+    token++;
+    skip = false;
+    card.classList.remove('calm', 'hide');
+    card.classList.add('fast');
+    big.textContent = '';
+    en.textContent = '';
+    en.classList.remove('on');
+    startNoise();
+    await sleep(reduce ? 0 : 480);
+    navigate(target);
+  }
+
+  document.addEventListener('astro:after-swap', () => {
+    const world = root.dataset.world || 'work';
+    if (world !== current) playTitle(world, 'switch');
+  });
+
+  document.addEventListener('click', (e) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-shuffle]');
+    if (!el) return;
+    e.preventDefault();
+    shuffle(el.dataset.shuffle!);
+  });
+
+  const start = root.dataset.world || 'work';
+  let seen = false;
+  try { seen = !!sessionStorage.getItem('intro'); } catch {}
+  if (seen) {
+    current = start;
+    card.classList.add('hide');
+  } else {
+    playTitle(start, 'intro');
+  }
+</script>

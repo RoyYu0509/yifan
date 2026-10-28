@@ -1,0 +1,14 @@
+---
+// 视觉强度开关：给偏好安静的访客 (以及 HR / 面试官) 一个明确的选择
+---
+<button class="fxbtn" type="button" aria-label="toggle visual effects">effects: <span class="v"></span></button>
+
+<script>
+  document.addEventListener('click', (e) => {
+    if (!(e.target as HTMLElement).closest('.fxbtn')) return;
+    const root = document.documentElement;
+    const next = root.dataset.fx === 'calm' ? 'full' : 'calm';
+    root.dataset.fx = next;
+    try { localStorage.setItem('fx', next); } catch {}
+  });
+</script>
