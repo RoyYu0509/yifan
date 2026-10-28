@@ -64,53 +64,6 @@ export function stand(leg: 0 | 1, drop = 0): string[] {
   return rows;
 }
 
-// 低头吃草：又短又粗的脖子斜压下去 (带胸颈的厚度)，头落在前蹄前面，角朝前
-function grazeRows(): string[] {
-  const rows = blank();
-  TORSO.forEach((r, i) => { rows[9 + i] = r; });
-  LEGS[0].forEach((r, i) => { rows[14 + i] = r; });
-  // 脖子上沿 (鬃毛) 每行右移一格；下沿从胸口斜到下巴，所以脖子有 4~5 格厚
-  for (let i = 0; i < 5; i++) {
-    fill(rows, 10 + i - 1, 14 + i, 20 + i, 'B');
-    if (i > 0) put(rows, 10 + i - 1, 20 + i, 'm');
-  }
-  fill(rows, 13, 18, 26, 'B');
-  put(rows, 13, 24, 'm');
-  fill(rows, 14, 19, 27, 'B');
-  fill(rows, 15, 20, 28, 'B');
-  fill(rows, 16, 22, 28, 'B');
-  fill(rows, 17, 24, 28, 'B');
-  fill(rows, 17, 24, 26, 'S'); // 下巴的阴影
-  fill(rows, 16, 27, 28, 'S'); // 口鼻
-  fill(rows, 17, 27, 28, 'S');
-  put(rows, 15, 25, 'e');
-  put(rows, 12, 27, 'h');
-  put(rows, 11, 28, 'h');
-  put(rows, 10, 29, 'H');
-  return rows;
-}
-
-// 抬头 → 低头的中间帧：把头和脖子整体向前下方挪一点，再补上脖子
-function grazeMidRows(): string[] {
-  const rows = blank();
-  const base = stand(0);
-  const DX = 2, DY = 3;
-  base.forEach((r, i) => { rows[i] = r; });
-  // 清掉原来的头颈 (列 >= 13 的前 9 行)
-  for (let r = 0; r < 9; r++) rows[r] = rows[r].slice(0, 12) + '.'.repeat(SW - 12);
-  // 在新位置重画头颈
-  HEAD_UP.forEach((row, r) => {
-    [...row].forEach((ch, c) => {
-      if (ch === '.' || c < 12) return;
-      put(rows, r + DY, c + DX, ch);
-    });
-  });
-  // 补脖子：从肩膀到新的头位置
-  for (let r = 8; r <= 10; r++) fill(rows, r, 15 + (r - 8), 20 + (r - 8) + 1, 'B');
-  fill(rows, 7, 17, 20, 'B');
-  return rows;
-}
-
 const closeEye = (rows: string[]) => rows.map((r) => r.replace('e', 'S'));
 
 export interface Pose { rows: string[]; tip: [number, number] }
@@ -122,6 +75,4 @@ export const POSES: Record<string, Pose> = {
   down3: { rows: stand(0, 3), tip: [21, 3] },
   lie: { rows: stand(0, 4), tip: [21, 4] },
   lieSleep: { rows: closeEye(stand(0, 4)), tip: [21, 4] },
-  grazeMid: { rows: grazeMidRows(), tip: [24, 3] },
-  graze: { rows: grazeRows(), tip: [29, 10] },
 };

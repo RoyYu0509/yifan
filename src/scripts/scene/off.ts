@@ -126,8 +126,13 @@ export function createOffScene(): Scene {
       ctx.fillStyle = `rgba(255,150,60,${(hot ? 0.14 : 0.06) * fl})`;
       ctx.beginPath(); ctx.arc(fx + 1, fy + 1, hot ? 14 : 9, 0, 6.3); ctx.fill();
       if (hot) {
-        ctx.fillStyle = 'rgba(255,190,100,0.28)';
-        ctx.fillRect(Math.round(GATE_X + 4 - mx * 5), Math.round(wallTop + 8 - my * 1.5), 6, 16);
+        // 门洞里透出的暖光：柔和的光晕，而不是一块实心的方块
+        const gx = GATE_X + 7 - mx * 5, gy = wallTop + 16 - my * 1.5;
+        const grad = ctx.createRadialGradient(gx, gy, 1, gx, gy, 16);
+        grad.addColorStop(0, 'rgba(255,190,100,0.35)');
+        grad.addColorStop(1, 'rgba(255,190,100,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(gx, gy, 16, 0, 6.3); ctx.fill();
       }
 
       ctx.drawImage(field.c, 0, 0);

@@ -1,0 +1,8 @@
+---
+import Section from '../../components/Section.astro';
+import EntryBlock from '../../components/EntryBlock.astro';
+import { profile } from '../../data/profile';
+---
+<Section world="work" slug="research">
+  {profile.research.map((e) => <EntryBlock entry={e} />)}
+</Section>

@@ -22,11 +22,22 @@ const list = Object.fromEntries(
   let idx = 0;
 
   // ---- 没有 mp3 时的占位：WebAudio 合成 ambient ----
+  // work：温暖、轻快、有一点希望的和弦 + 稀疏的柔和拨弦 (面向招聘方，不能冷)
+  // off ：低频 pad + 钟声 (A 小调五声音阶)
   let ac: AudioContext | null = null;
   let master: GainNode | null = null;
   let timer: number | undefined;
-  const OFF_NOTES = [220, 261.63, 293.66, 329.63, 392, 440, 523.25, 587.33]; // A minor pentatonic
-  const WORK_NOTES = [329.63, 392, 493.88, 587.33, 698.46]; // 带一点不安的小二度
+  let chordTimer: number | undefined;
+
+  const OFF_NOTES = [220, 261.63, 293.66, 329.63, 392, 440, 523.25, 587.33];
+  const WORK_NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5]; // C 大调五声音阶
+  // Cmaj7 → Am7 → Fmaj7 → G，每个和弦 8 秒
+  const WORK_CHORDS = [
+    [130.81, 196.0, 246.94, 329.63],
+    [110.0, 164.81, 196.0, 261.63],
+    [87.31, 174.61, 220.0, 329.63],
+    [98.0, 196.0, 246.94, 293.66],
+  ];
 
   function startSynth(world: string) {
     ac = new AudioContext();
@@ -34,80 +45,83 @@ const list = Object.fromEntries(
     const ctx = ac;
     master = ctx.createGain();
     master.gain.value = 0;
-    master.gain.linearRampToValueAtTime(world === 'off' ? 0.5 : 0.45, ctx.currentTime + 3);
+    master.gain.linearRampToValueAtTime(world === 'off' ? 0.5 : 0.55, ctx.currentTime + 3);
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.value = world === 'off' ? 900 : 700;
+    lp.frequency.value = world === 'off' ? 900 : 1800;
     const delay = ctx.createDelay(1);
-    delay.delayTime.value = world === 'off' ? 0.42 : 0.55;
+    delay.delayTime.value = world === 'off' ? 0.42 : 0.38;
     const fb = ctx.createGain();
-    fb.gain.value = 0.45;
+    fb.gain.value = world === 'off' ? 0.45 : 0.38;
     delay.connect(fb).connect(delay);
     lp.connect(master);
     lp.connect(delay);
     delay.connect(master);
     master.connect(ctx.destination);
 
-    const pads: [number, number, OscillatorType][] =
-      world === 'off'
-        ? [[55, 0, 'triangle'], [82.41, 3, 'triangle'], [110, -4, 'triangle']]
-        : [[36.71, 0, 'sawtooth'], [55, 6, 'sawtooth'], [51.91, -5, 'sawtooth']];
-    for (const [f, d, type] of pads) {
-      const o = ctx.createOscillator();
-      o.type = type;
-      o.frequency.value = f;
-      o.detune.value = d;
-      const g = ctx.createGain();
-      g.gain.value = world === 'off' ? 0.18 : 0.07;
-      const lfo = ctx.createOscillator();
-      lfo.frequency.value = 0.07 + Math.random() * 0.05;
-      const lg = ctx.createGain();
-      lg.gain.value = world === 'off' ? 0.08 : 0.03;
-      lfo.connect(lg).connect(g.gain);
-      o.connect(g).connect(lp);
-      o.start();
-      lfo.start();
-    }
-
-    if (world === 'work') {
-      // 雨声：带通白噪声
-      const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-      const ch = buf.getChannelData(0);
-      for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = 3200;
-      bp.Q.value = 0.6;
-      const ng = ctx.createGain();
-      ng.gain.value = 0.05;
-      src.connect(bp).connect(ng).connect(master);
-      src.start();
+    if (world === 'off') {
+      for (const [f, d] of [[55, 0], [82.41, 3], [110, -4]] as const) {
+        const o = ctx.createOscillator();
+        o.type = 'triangle';
+        o.frequency.value = f;
+        o.detune.value = d;
+        const g = ctx.createGain();
+        g.gain.value = 0.18;
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 0.07 + Math.random() * 0.05;
+        const lg = ctx.createGain();
+        lg.gain.value = 0.08;
+        lfo.connect(lg).connect(g.gain);
+        o.connect(g).connect(lp);
+        o.start();
+        lfo.start();
+      }
+    } else {
+      // 和弦 pad：慢起慢落，相邻和弦互相重叠
+      let ci = 0;
+      const chord = () => {
+        if (!ac || ac !== ctx) return;
+        const t0 = ctx.currentTime;
+        for (const f of WORK_CHORDS[ci % WORK_CHORDS.length]) {
+          const o = ctx.createOscillator();
+          o.type = 'triangle';
+          o.frequency.value = f;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(0, t0);
+          g.gain.linearRampToValueAtTime(0.07, t0 + 2.5);
+          g.gain.linearRampToValueAtTime(0.0001, t0 + 10);
+          o.connect(g).connect(lp);
+          o.start(t0);
+          o.stop(t0 + 10.2);
+        }
+        ci++;
+        chordTimer = window.setTimeout(chord, 8000);
+      };
+      chord();
     }
 
     const notes = world === 'off' ? OFF_NOTES : WORK_NOTES;
     const note = () => {
       if (!ac || ac !== ctx) return;
       const o = ctx.createOscillator();
-      o.type = world === 'off' ? 'sine' : 'square';
+      o.type = world === 'off' ? 'sine' : 'triangle';
       o.frequency.value = notes[(Math.random() * notes.length) | 0];
       const g = ctx.createGain();
       const t0 = ctx.currentTime;
       g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(world === 'off' ? 0.12 : 0.03, t0 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + (world === 'off' ? 4 : 1.6));
+      g.gain.linearRampToValueAtTime(world === 'off' ? 0.12 : 0.08, t0 + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + (world === 'off' ? 4 : 2.2));
       o.connect(g).connect(lp);
       o.start(t0);
       o.stop(t0 + 4.2);
-      timer = window.setTimeout(note, (world === 'off' ? 2500 : 3500) + Math.random() * 4500);
+      timer = window.setTimeout(note, (world === 'off' ? 2500 : 1600) + Math.random() * (world === 'off' ? 4500 : 3200));
     };
     note();
   }
 
   function stopSynth() {
     clearTimeout(timer);
+    clearTimeout(chordTimer);
     if (!ac || !master) return;
     const c = ac, m = master;
     m.gain.cancelScheduledValues(c.currentTime);

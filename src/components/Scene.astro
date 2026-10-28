@@ -27,8 +27,9 @@
   let t = 0;
   function frame(now: number) {
     requestAnimationFrame(frame);
-    if (document.hidden) { last = now; return; }
     const root = document.documentElement;
+    // 进入“房间”(阅读页) 之后背景不再显示，也就不必再画
+    if (document.hidden || root.dataset.view === 'room') { last = now; return; }
     const calm = root.dataset.fx === 'calm';
     // calm 只影响亮度 / 光晕 (见 global.css)，场景里的动画完整保留
     const dt = Math.min(0.05, (now - last) / 1000);

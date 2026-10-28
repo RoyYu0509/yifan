@@ -7,26 +7,25 @@ import Scene from '../components/Scene.astro';
 import TitleCard from '../components/TitleCard.astro';
 import BgmPlayer from '../components/BgmPlayer.astro';
 import FxToggle from '../components/FxToggle.astro';
-import { getCollection } from 'astro:content';
 import { site } from '../data/site';
 import { worlds, homeOf, pathOf, type WorldId } from '../data/worlds';
+import { visibleSections } from '../data/nav';
 
 interface Props {
   world: WorldId;
+  view?: 'landing' | 'room'; // landing：背景 + 面板；room：进入页面后的纯阅读排版
   title?: string;
   description?: string;
 }
-const { world, title, description = `${site.name} — ${site.bio.work}` } = Astro.props;
+const { world, view = 'room', title, description = `${site.name} — ${site.bio.work}` } = Astro.props;
 const w = worlds[world];
 const other = w.other;
-// 还没有内容的栏目先不出现在导航里，发布第一篇之后自动出现
-const posts = await getCollection('posts', (e) => !e.data.draft);
-const navSections = w.sections.filter((s) => !s.kind || posts.some((p) => p.data.kind === s.kind));
+const navSections = await visibleSections(world);
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.sub[world]}`;
 ---
 <!doctype html>
-<html lang="zh-CN" data-world={world}>
+<html lang="zh-CN" data-world={world} data-view={view}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -72,9 +71,12 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.s
           <span class="zh">{site.name}</span>
           <span class="en">{site.sub[world]}</span>
         </a>
-        <nav class="nav">
-          {navSections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
-        </nav>
+        {view === 'room' && (
+          <nav class="nav">
+            {navSections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
+            {world === 'work' && site.resume && <a href={site.resume} target="_blank" rel="noopener">resume ↗</a>}
+          </nav>
+        )}
       </header>
 
       <main>
@@ -84,7 +86,7 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.s
       <footer class="footbar">
         <span class="copy">© {new Date().getFullYear()} {site.name}</span>
         <span class="controls">
-          <FxToggle />
+          {view === 'landing' && <FxToggle />}
           <BgmPlayer />
         </span>
       </footer>
@@ -127,31 +129,6 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.s
       document.addEventListener('focusin', hot(true));
       document.addEventListener('focusout', hot(false));
       document.addEventListener('astro:before-swap', () => delete root.dataset.hot);
-
-      // work 里的标题：进入时先打乱再逐字归位
-      const SCRAMBLE = '▓▒░#%&@01<>/\\';
-      async function scramble(el: HTMLElement) {
-        const final = el.dataset.scramble || el.textContent || '';
-        el.dataset.scramble = final;
-        if (matchMedia('(prefers-reduced-motion: reduce)').matches || root.dataset.fx === 'calm') { el.textContent = final; return; }
-        const steps = 18;
-        for (let i = 0; i <= steps; i++) {
-          const keep = Math.floor((final.length * i) / steps);
-          let out = final.slice(0, keep);
-          for (let k = keep; k < final.length; k++) out += final[k] === ' ' ? ' ' : SCRAMBLE[(Math.random() * SCRAMBLE.length) | 0];
-          el.textContent = out;
-          await new Promise((r) => setTimeout(r, 32));
-        }
-      }
-      document.addEventListener('astro:page-load', async () => {
-        const els = Array.from(document.querySelectorAll<HTMLElement>('[data-scramble]'));
-        if (!els.length) return;
-        // 安静模式下标题直接显示，不做打乱动画
-        if (root.dataset.fx === 'calm') return;
-        els.forEach((el) => { el.dataset.scramble ||= el.textContent || ''; el.textContent = ''; });
-        await (window as unknown as { __titleReady?: Promise<void> }).__titleReady;
-        els.forEach(scramble);
-      });
 
       console.log('%c墙很高，门已经关上了。', 'color:#e8d9a8');
     </script>

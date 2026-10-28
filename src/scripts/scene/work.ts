@@ -36,7 +36,7 @@ export function createWorkScene(): Scene {
   const sky = layer();
   ditherSky(sky.x, [[0, '#02050a'], [0.45, '#07141c'], [0.8, '#12303a'], [1, '#3a2c48']], GROUND);
 
-  const WINC = ['#f0e6a0', '#9fe8e0', '#ffffff', '#e8a0c0', '#f0e6a0'];
+  const WINC = ['#f0e6a0', '#9fe8e0', '#ffffff', '#ffd9a0', '#f0e6a0'];
   const tops: { x: number; y: number }[] = [];
 
   function skyline(color: string, base: number, hMin: number, hMax: number, wMin: number, wMax: number, winP: number, collectTops = false) {
@@ -97,14 +97,12 @@ export function createWorkScene(): Scene {
 
   const signs = [
     { s: 'SYSTEM', x: 208, y: 70, c: '#5ff0d0', ph: 0 },
-    { s: 'FACTORY', x: 136, y: 108, c: '#ff4fa3', ph: 3 },
+    { s: 'FACTORY', x: 136, y: 108, c: '#ffb86b', ph: 3 },
   ];
 
   const drops = Array.from({ length: 150 }, () => ({ x: rnd() * (W + 40), y: rnd() * H, v: 90 + rnd() * 70, l: 3 + ((rnd() * 3) | 0) }));
   const cars = Array.from({ length: 6 }, () => ({ x: rnd() * W, v: (rnd() > 0.5 ? 1 : -1) * (18 + rnd() * 30), red: rnd() > 0.5 }));
-  let nextGlitch = 5 + rnd() * 4;
-  let glitchUntil = 0;
-  let eyesUntil = 0;
+    let eyesUntil = 0;
   let nextEyes = 3;
 
   return {
@@ -188,11 +186,11 @@ export function createWorkScene(): Scene {
         ctx.fillStyle = hot ? 'rgba(95,240,208,0.55)' : 'rgba(95,240,208,0.18)';
         ctx.fillRect(tunnel.x + (tunnel.w >> 1) - 1, tunnel.y - 3, 3, 1);
         if (show) {
-          ctx.fillStyle = '#ff2a2a';
+          ctx.fillStyle = '#ffcf70';
           const ex = tunnel.x + 8 + (hot ? 0 : (t * 3) % 2 < 1 ? 0 : 6);
           ctx.fillRect(ex, tunnel.y + 12, 2, 1);
           ctx.fillRect(ex + 5, tunnel.y + 12, 2, 1);
-          ctx.fillStyle = 'rgba(255,42,42,0.15)';
+          ctx.fillStyle = 'rgba(255,207,112,0.16)';
           ctx.fillRect(ex - 1, tunnel.y + 11, 9, 3);
         }
       }
@@ -212,18 +210,6 @@ export function createWorkScene(): Scene {
         }
       }
 
-      // 偶发的信号故障：横向切片错位
-      if (!reduce) {
-        if (t > nextGlitch) { glitchUntil = t + 0.16; nextGlitch = t + 7 + rnd() * 8; }
-        if (t < glitchUntil) {
-          for (let i = 0; i < 3; i++) {
-            const y = (rnd() * (H - 14)) | 0;
-            const h = 2 + ((rnd() * 8) | 0);
-            const dx = ((rnd() - 0.5) * 14) | 0;
-            ctx.drawImage(ctx.canvas, 0, y, W, h, dx, y, W, h);
-          }
-        }
-      }
     },
   };
 }

@@ -1,8 +1,13 @@
 ---
 import Section from '../../components/Section.astro';
+import EntryBlock from '../../components/EntryBlock.astro';
 import { profile } from '../../data/profile';
+import { site } from '../../data/site';
 ---
 <Section world="work" slug="about">
+  <h3 class="sub">Experience</h3>
+  {profile.experience.map((e) => <EntryBlock entry={e} />)}
+
   <h3 class="sub">Education</h3>
   {profile.education.map((e) => (
     <article class="edu">
@@ -20,8 +25,16 @@ import { profile } from '../../data/profile';
     ))}
   </ol>
 
+  <h3 class="sub">Skills</h3>
+  <dl class="skills">
+    {profile.skills.map((g) => (<><dt>{g.group}</dt><dd>{g.items}</dd></>))}
+  </dl>
+
   <h3 class="sub">Contact</h3>
-  <p class="links2">{profile.links.map((l) => <a href={l.href} rel="noopener">{l.label}</a>)}</p>
+  <p class="links2">
+    {profile.links.map((l) => <a href={l.href} rel="noopener">{l.label}</a>)}
+    {site.resume && <a href={site.resume} target="_blank" rel="noopener">Resume ↗</a>}
+  </p>
 </Section>
 
 <style is:global>

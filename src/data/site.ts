@@ -9,4 +9,6 @@ export const site = {
   // 切到另一面时标题卡上的副标题
   sub: { work: 'AI Infra · Research', off: 'after hours' },
   github: 'https://github.com/RoyYu0509',
+  // 简历的 Google Docs 链接 (文档需设为“知道链接的任何人都可查看”)。留空则不显示。
+  resume: '',
 };

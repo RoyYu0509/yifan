@@ -14,7 +14,7 @@ const entries = sec.kind
 <Base world={world} title={sec.title}>
   <section class="panel" style="margin-top: 28px;">
     {world === 'work' && <p class="path">~/{sec.slug}</p>}
-    <h1 class={world === 'off' ? 'shadow-title' : ''} data-scramble={world === 'work' ? sec.title : undefined}>{sec.title}</h1>
+    <h1 class={world === 'off' ? 'shadow-title' : ''}>{sec.title}</h1>
     <p class="dim">{sec.desc}</p>
     {sec.kind ? <Listing entries={entries} /> : <div class="prose wide" style="margin-top: 14px;"><slot /></div>}
   </section>

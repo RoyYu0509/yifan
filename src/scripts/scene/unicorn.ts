@@ -1,22 +1,27 @@
 import { POSES, PAL, SW, SH } from './unicorn-data';
-import { layer, type Layer } from './common';
+import { layer, clamp, type Layer } from './common';
 
-// 独角兽的行为：走 → (吃草 | 发呆 | 卧下休息) → 走 ……
-// 每个姿势的像素数据在 unicorn-data.ts；这里负责状态机和绘制。
-type State = 'walk' | 'idle' | 'grazeDown' | 'graze' | 'grazeUp' | 'lieDown' | 'lie' | 'lieUp';
+// 独角兽的行为：在田野里随机游荡 —— 挑一个附近的目标点走过去，
+// 到了就发呆一会儿、或者卧下休息，然后再挑下一个点。
+// 像素数据在 unicorn-data.ts；这里负责状态机和绘制。
+type State = 'walk' | 'idle' | 'lieDown' | 'lie' | 'lieUp';
 
 interface Beast {
-  x: number;
-  foot: number;
+  cx: number; // 身体中心 x
+  foot: number; // 脚底 y
+  tx: number;
+  ty: number;
   dir: 1 | -1;
   speed: number;
   phase: number;
-  depth: number; // 0 远 .. 1 近
   state: State;
-  until: number; // 当前状态持续到什么时候 (模拟时间)
   since: number;
-  sleepy: boolean; // 这次卧下会不会闭眼睡着
+  until: number;
+  sleepy: boolean;
 }
+
+const BODY_CENTER = 12; // 精灵里身体中心所在的列
+const MARGIN = 24; // 距屏幕左右边缘的最小距离 (留出视差位移)
 
 function bake(): Record<string, { c: HTMLCanvasElement; tip: [number, number] }> {
   const out: Record<string, { c: HTMLCanvasElement; tip: [number, number] }> = {};
@@ -38,49 +43,70 @@ function bake(): Record<string, { c: HTMLCanvasElement; tip: [number, number] }>
 export function createHerd(rnd: () => number, W: number, horizon: number, count = 5) {
   const sprites = bake();
   const between = (a: number, b: number) => a + rnd() * (b - a);
+  const minY = horizon + 24;
+  const maxY = 176; // 脚底最低不超过画面
+
+  function pickTarget(b: Beast) {
+    // 只挑附近的点，走起来是闲逛，不是赶路；并且始终待在画面里
+    b.tx = clamp(b.cx + between(-90, 90), MARGIN, W - MARGIN);
+    b.ty = clamp(b.foot + between(-18, 18), minY, maxY);
+    if (Math.abs(b.tx - b.cx) > 1) b.dir = b.tx > b.cx ? 1 : -1;
+  }
 
   const beasts: Beast[] = Array.from({ length: count }, (_, i) => {
-    const depth = i / (count - 1);
-    return {
-      x: 20 + rnd() * (W - 40),
-      foot: horizon + 26 + depth * 32,
+    const b: Beast = {
+      cx: between(MARGIN + 10, W - MARGIN - 10),
+      foot: minY + ((maxY - minY) * (i + 0.5)) / count,
+      tx: 0, ty: 0,
       dir: rnd() > 0.5 ? 1 : -1,
-      speed: 1.5 + rnd() * 2,
+      speed: between(4, 7),
       phase: rnd() * 10,
-      depth,
-      state: 'walk' as State,
-      until: between(1, 5),
+      state: 'walk',
       since: 0,
+      until: 0,
       sleepy: false,
     };
+    pickTarget(b);
+    return b;
   });
 
-  function enter(b: Beast, st: State, t: number, dur: number) {
+  function enter(b: Beast, st: State, t: number, dur = 0) {
     b.state = st;
     b.since = t;
     b.until = t + dur;
   }
 
-  function advance(b: Beast, t: number) {
-    if (t < b.until) return;
+  function arrived(b: Beast, t: number) {
+    const r = rnd();
+    if (r < 0.55) enter(b, 'idle', t, between(1.5, 4));
+    else if (r < 0.8) { b.sleepy = rnd() > 0.5; enter(b, 'lieDown', t, 0.9); }
+    else { pickTarget(b); enter(b, 'walk', t); }
+  }
+
+  function update(b: Beast, t: number, dt: number) {
     switch (b.state) {
       case 'walk': {
-        const r = rnd();
-        if (r < 0.45) enter(b, 'grazeDown', t, 0.5);
-        else if (r < 0.65) enter(b, 'idle', t, between(1.5, 3.5));
-        else { b.sleepy = rnd() > 0.5; enter(b, 'lieDown', t, 0.9); }
-        break;
+        const dx = b.tx - b.cx, dy = b.ty - b.foot;
+        const d = Math.hypot(dx, dy);
+        if (d < 1.5) return arrived(b, t);
+        const step = Math.min(d, b.speed * dt);
+        b.cx += (dx / d) * step;
+        b.foot += (dy / d) * step * 0.6;
+        if (Math.abs(dx) > 0.5) b.dir = dx > 0 ? 1 : -1;
+        return;
       }
       case 'idle':
-        if (rnd() > 0.7) b.dir = (b.dir * -1) as 1 | -1;
-        enter(b, 'walk', t, between(4, 9));
-        break;
-      case 'grazeDown': enter(b, 'graze', t, between(5, 9)); break;
-      case 'graze': enter(b, 'grazeUp', t, 0.5); break;
-      case 'grazeUp': enter(b, 'walk', t, between(4, 9)); break;
-      case 'lieDown': enter(b, 'lie', t, between(7, 14)); break;
-      case 'lie': enter(b, 'lieUp', t, 0.9); break;
-      case 'lieUp': enter(b, 'walk', t, between(4, 9)); break;
+        if (t >= b.until) { pickTarget(b); enter(b, 'walk', t); }
+        return;
+      case 'lieDown':
+        if (t >= b.until) enter(b, 'lie', t, between(7, 14));
+        return;
+      case 'lie':
+        if (t >= b.until) enter(b, 'lieUp', t, 0.9);
+        return;
+      case 'lieUp':
+        if (t >= b.until) { pickTarget(b); enter(b, 'walk', t); }
+        return;
     }
   }
 
@@ -89,9 +115,6 @@ export function createHerd(rnd: () => number, W: number, horizon: number, count 
     switch (b.state) {
       case 'walk': return { key: ((t * 2 + b.phase) | 0) % 2 ? 'stand1' : 'stand0', bob: Math.round(Math.sin(t * 4 + b.phase) * 0.5) };
       case 'idle': return { key: 'stand0', bob: 0 };
-      case 'grazeDown':
-      case 'grazeUp': return { key: 'grazeMid', bob: 0 };
-      case 'graze': return { key: 'graze', bob: ((t * 1.6 + b.phase) | 0) % 2 ? 0 : 1 }; // 咀嚼时轻轻点头
       case 'lieDown': return { key: age < 0.45 ? 'down2' : 'down3', bob: 0 };
       case 'lieUp': return { key: age < 0.45 ? 'down3' : 'down2', bob: 0 };
       case 'lie': {
@@ -102,28 +125,20 @@ export function createHerd(rnd: () => number, W: number, horizon: number, count 
   }
 
   return {
-    // 最近一个“正在被鼠标悬停”之类的交互暂不需要，保持纯动画
     draw(ctx: CanvasRenderingContext2D, t: number, dt: number, mx: number, my: number, moving: boolean) {
       const sorted = [...beasts].sort((a, b) => a.foot - b.foot);
       for (const b of sorted) {
-        if (moving) {
-          advance(b, t);
-          if (b.state === 'walk') {
-            b.x += b.dir * b.speed * dt;
-            if (b.x > W + 36) b.x = -36;
-            if (b.x < -36) b.x = W + 36;
-          }
-        }
+        if (moving) update(b, t, dt);
         const { key, bob } = frame(b, t);
         const sp = sprites[key];
-        const px = Math.round(b.x - mx * (6 + b.depth * 10));
+        const cx = Math.round(b.cx - mx * 6);
+        const px = b.dir > 0 ? cx - BODY_CENTER : cx - SW + BODY_CENTER + 1;
         const py = Math.round(b.foot - SH + bob - my * 2);
 
-        // 地面的淡光
-        ctx.fillStyle = `rgba(240,230,190,${0.05 + b.depth * 0.04})`;
-        ctx.beginPath(); ctx.ellipse(px + 13, py + SH - 1, 16, 3, 0, 0, 6.3); ctx.fill();
+        ctx.fillStyle = 'rgba(240,230,190,0.06)';
+        ctx.beginPath(); ctx.ellipse(cx, py + SH - 1, 16, 3, 0, 0, 6.3); ctx.fill();
 
-        ctx.globalAlpha = 0.6 + 0.4 * b.depth;
+        ctx.globalAlpha = 0.6 + 0.4 * clamp((b.foot - minY) / (maxY - minY), 0, 1);
         if (b.dir < 0) {
           ctx.save();
           ctx.translate(px + SW, py);
@@ -136,8 +151,7 @@ export function createHerd(rnd: () => number, W: number, horizon: number, count 
         ctx.globalAlpha = 1;
 
         // 角尖的闪光
-        const g = Math.sin(t * 1.1 + b.phase * 2);
-        if (g > 0.93 || !moving) {
+        if (Math.sin(t * 1.1 + b.phase * 2) > 0.93 || !moving) {
           const tx = b.dir < 0 ? px + SW - 1 - sp.tip[0] : px + sp.tip[0];
           const ty = py + sp.tip[1];
           ctx.fillStyle = 'rgba(255,255,255,0.9)';

@@ -1,0 +1,119 @@
+---
+// 首页：背景场景 + 一个面板。面板里的简介、联系方式和导航会逐字打出来；
+// 点 × 可以收起面板、看看窗外。进入任何一个栏目后就是没有背景的“房间”。
+import Base from '../layouts/Base.astro';
+import { site } from '../data/site';
+import { profile } from '../data/profile';
+import { visibleSections } from '../data/nav';
+import { pathOf, type WorldId } from '../data/worlds';
+
+interface Props { world: WorldId }
+const { world } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const sections = await visibleSections(world);
+const showResume = world === 'work' && !!site.resume;
+---
+<Base world={world} view="landing">
+  <section class="window" id="landing" aria-label="intro">
+    <div class="bar">
+      <span>~/{site.name.toLowerCase()}</span>
+      <button class="win-close" type="button" aria-label="hide panel" title="看看窗外">×</button>
+    </div>
+    <div class="win-body">
+      {world === 'work' ? (
+        <>
+          <h1 class="who" data-type>{profile.fullName}</h1>
+          <p class="role" data-type>{profile.headline}</p>
+          <p class="edu" data-type>{profile.tagline}</p>
+          <p class="pitch" data-type>{profile.pitch}</p>
+          <p class="contact">
+            {profile.links.map((l) => <a href={l.href} rel="noopener" data-type>{l.label}</a>)}
+            {showResume && <a href={site.resume} target="_blank" rel="noopener" data-type>Resume ↗</a>}
+          </p>
+        </>
+      ) : (
+        <p class="pitch" data-type>{site.bio.off}</p>
+      )}
+
+      <ul class="entrances">
+        {sections.map((s, i) => (
+          <li>
+            <a href={`${base}${pathOf(world, s.slug)}`}>
+              <span class="n" data-type>{`0${i + 1}`}</span>
+              <span class="nm" data-type>{s.label}</span>
+              <span class="ds" data-type>{s.desc}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+  <button class="win-reopen" type="button" aria-label="show panel">▤ {world === 'work' ? 'info' : '回到面板'}</button>
+</Base>
+<noscript><style>.window { opacity: 1 !important; transform: none !important; }</style></noscript>
+
+<script>
+  const root = document.documentElement;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let skip = false;
+
+  // 点 × 收起、点 ▤ 重新打开；点面板本身则跳过打字动画
+  document.addEventListener('click', (e) => {
+    const t = e.target as HTMLElement;
+    if (t.closest('.win-close')) root.dataset.box = 'closed';
+    else if (t.closest('.win-reopen')) delete root.dataset.box;
+    else if (t.closest('#landing')) skip = true;
+  });
+  document.addEventListener('astro:after-swap', () => delete root.dataset.box);
+
+  async function init() {
+    const win = document.getElementById('landing');
+    if (!win || win.dataset.init) return;
+    win.dataset.init = '1';
+    skip = false;
+
+    let landed = false;
+    try { landed = !!sessionStorage.getItem('landed'); } catch {}
+    const els = Array.from(win.querySelectorAll<HTMLElement>('[data-type]'));
+
+    if (landed || reduce) { win.classList.add('open', 'instant'); return; }
+
+    // 文字保留在原位，只是“还没打出来的部分”不可见，这样面板的尺寸从一开始就稳定
+    const items = els.map((el) => {
+      const text = el.textContent || '';
+      el.innerHTML = '<span class="t"></span><span class="r"></span>';
+      const t = el.firstElementChild as HTMLElement;
+      const r = el.lastElementChild as HTMLElement;
+      r.textContent = text;
+      r.style.visibility = 'hidden';
+      return { text, t, r };
+    });
+
+    let cancelled = false;
+    document.addEventListener('astro:before-swap', () => { cancelled = true; }, { once: true });
+
+    await (window as unknown as { __titleReady?: Promise<void> }).__titleReady;
+    if (cancelled) return;
+    win.classList.add('open');
+    await new Promise((r) => setTimeout(r, 450));
+
+    for (const it of items) {
+      if (cancelled) return;
+      if (skip) break;
+      const per = Math.min(26, 800 / Math.max(it.text.length, 1));
+      for (let i = 1; i <= it.text.length; i++) {
+        if (cancelled || skip) break;
+        it.t.textContent = it.text.slice(0, i);
+        it.r.textContent = it.text.slice(i);
+        await new Promise((r) => setTimeout(r, per));
+      }
+      it.t.textContent = it.text;
+      it.r.textContent = '';
+    }
+    // 跳过时，把剩下的一次性补全
+    for (const it of items) { it.t.textContent = it.text; it.r.textContent = ''; }
+    try { sessionStorage.setItem('landed', '1'); } catch {}
+  }
+  document.addEventListener('astro:page-load', init);
+  init();
+</script>
