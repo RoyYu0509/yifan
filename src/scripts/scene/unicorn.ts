@@ -40,7 +40,7 @@ function bake(): Record<string, { c: HTMLCanvasElement; tip: [number, number] }>
   return out;
 }
 
-export function createHerd(rnd: () => number, W: number, horizon: number, count = 5) {
+export function createHerd(rnd: () => number, W: number, horizon: number, count = 5, avoid?: (x: number, y: number) => boolean) {
   const sprites = bake();
   const between = (a: number, b: number) => a + rnd() * (b - a);
   const minY = horizon + 24;
@@ -48,8 +48,11 @@ export function createHerd(rnd: () => number, W: number, horizon: number, count 
 
   function pickTarget(b: Beast) {
     // 只挑附近的点，走起来是闲逛，不是赶路；并且始终待在画面里
-    b.tx = clamp(b.cx + between(-90, 90), MARGIN, W - MARGIN);
-    b.ty = clamp(b.foot + between(-18, 18), minY, maxY);
+    for (let tries = 0; tries < 10; tries++) {
+      b.tx = clamp(b.cx + between(-90, 90), MARGIN, W - MARGIN);
+      b.ty = clamp(b.foot + between(-18, 18), minY, maxY);
+      if (!avoid || !avoid(b.tx, b.ty)) break;
+    }
     if (Math.abs(b.tx - b.cx) > 1) b.dir = b.tx > b.cx ? 1 : -1;
   }
 

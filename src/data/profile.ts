@@ -15,6 +15,12 @@ export const profile = {
   fullName: '余逸凡 · Yifan Yu',
   headline: 'AI Infra · AI 算法优化 · 算法研究',
   tagline: 'NUS 数据科学与机器学习硕士 · 2026',
+  highlights: [
+    { v: '9.4×', l: 'Triton FlashAttention2 较朴素 attention 提速（4K，RTX 3090 Ti）' },
+    { v: '86%', l: '自研 NCCL DDP 双卡扩展效率，追平 PyTorch 官方 DDP' },
+    { v: '70%', l: '自研推理引擎吞吐，对标 SGLang 同功能集（32 并发）' },
+    { v: 'JCP', l: '第一作者：Local CP 不确定性量化方法（J. Comput. Phys.）' },
+  ],
   pitch: '从零实现 190M 参数 LLM 的训练与推理全栈；以第一作者在 JCP 发表不确定性量化方法；构建并评测 Agent 科研系统（投稿 ICLR 2027）。',
   summary:
     '从零实现 190M 参数 LLM 的模型架构、训练与推理全栈（Triton FA2 较朴素 attention 快 9.4×，DDP 扩展效率 86%，自研推理引擎吞吐达 SGLang 同功能集的 70%）；负责构建并评测 Agent 科研系统（投稿 ICLR 2027）；以第一作者在 JCP 发表机器学习不确定性量化方法。',

@@ -1,15 +1,17 @@
 ---
 import { render, type CollectionEntry } from 'astro:content';
 import Base from '../layouts/Base.astro';
-import { worldOfKind } from '../data/worlds';
+import { worldOfKind, pathOf } from '../data/worlds';
 
 interface Props { entry: CollectionEntry<'posts'> }
 const { entry } = Astro.props;
 const world = worldOfKind(entry.data.kind);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const { Content } = await render(entry);
 ---
 <Base world={world} title={entry.data.title} description={entry.data.summary}>
   <article class="panel" style="margin-top: 28px;">
+    <a class="back" href={`${base}${pathOf(world, entry.data.kind)}`}>← 返回列表</a>
     <p class="meta"><span class="d">{entry.data.date.toISOString().slice(0, 10)}</span>{entry.data.tags.length ? ` · ${entry.data.tags.join(' · ')}` : ''}</p>
     <h1 class={world === 'off' ? 'shadow-title' : ''}>{entry.data.title}</h1>
     <div class="prose" style="margin-top: 16px;"><Content /></div>

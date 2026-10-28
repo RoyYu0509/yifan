@@ -67,7 +67,7 @@ const data = { work: { zh: site.name, en: site.sub.work }, off: { zh: site.name,
     const calm = mode === 'intro' && (root.dataset.fx === 'calm' || reduce);
     card.dataset.world = world;
     card.classList.toggle('calm', calm);
-    card.classList.remove('hide', 'fast');
+    card.classList.remove('hide', 'fast', 'wipe-down', 'ripple', 'run');
     en.classList.remove('on');
     let done!: () => void;
     w.__titleReady = new Promise<void>((r) => (done = r));
@@ -99,18 +99,23 @@ const data = { work: { zh: site.name, en: site.sub.work }, off: { zh: site.name,
     if (my === token) { stopNoise(); busy = false; }
   }
 
-  async function shuffle(target: string) {
+  // 从 work 进入 off：沿台阶往下走 (自上而下的台阶式擦除)；从 off 回到 work：潜入水潭 (涟漪从入口处荡开)
+  async function shuffle(target: string, origin: { x: number; y: number }) {
     if (busy) return;
     busy = true;
     token++;
     skip = false;
-    card.classList.remove('calm', 'hide');
-    card.classList.add('fast');
+    const mode = root.dataset.world === 'work' ? 'wipe-down' : 'ripple';
+    card.classList.remove('calm', 'hide', 'fast', 'run');
+    card.style.setProperty('--ox', origin.x + 'px');
+    card.style.setProperty('--oy', origin.y + 'px');
     big.textContent = '';
     en.textContent = '';
     en.classList.remove('on');
-    startNoise();
-    await sleep(reduce ? 0 : 480);
+    card.classList.add(mode);
+    void card.offsetWidth; // 让起始状态先生效，再开始动画
+    card.classList.add('run');
+    await sleep(reduce ? 0 : mode === 'wipe-down' ? 1050 : 1200);
     navigate(target);
   }
 
@@ -123,7 +128,8 @@ const data = { work: { zh: site.name, en: site.sub.work }, off: { zh: site.name,
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-shuffle]');
     if (!el) return;
     e.preventDefault();
-    shuffle(el.dataset.shuffle!);
+    const r = el.getBoundingClientRect();
+    shuffle(el.dataset.shuffle!, { x: r.left + r.width / 2, y: r.top + r.height / 2 });
   });
 
   const start = root.dataset.world || 'work';

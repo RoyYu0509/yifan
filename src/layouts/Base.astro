@@ -66,18 +66,18 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.s
     <div class="fx fx-lantern" aria-hidden="true"></div>
 
     <div class="shell">
+      {view === 'room' && (
       <header class="topbar">
         <a class="world-label" href={`${base}${homeOf(world)}`}>
           <span class="zh">{site.name}</span>
           <span class="en">{site.sub[world]}</span>
         </a>
-        {view === 'room' && (
-          <nav class="nav">
-            {navSections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
-            {world === 'work' && site.resume && <a href={site.resume} target="_blank" rel="noopener">resume ↗</a>}
-          </nav>
-        )}
+        <nav class="nav">
+          {navSections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
+          {world === 'work' && site.resume && <a href={site.resume} target="_blank" rel="noopener">resume ↗</a>}
+        </nav>
       </header>
+      )}
 
       <main>
         <slot />

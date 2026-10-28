@@ -2,17 +2,19 @@
 import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import Listing from './Listing.astro';
-import { worlds, type WorldId } from '../data/worlds';
+import { worlds, homeOf, type WorldId } from '../data/worlds';
 
 interface Props { world: WorldId; slug: string }
 const { world, slug } = Astro.props;
 const sec = worlds[world].sections.find((s) => s.slug === slug)!;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const entries = sec.kind
   ? (await getCollection('posts', (e) => !e.data.draft && e.data.kind === sec.kind)).sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
   : [];
 ---
 <Base world={world} title={sec.title}>
   <section class="panel" style="margin-top: 28px;">
+    <a class="back" href={`${base}${homeOf(world)}`}>← 返回</a>
     {world === 'work' && <p class="path">~/{sec.slug}</p>}
     <h1 class={world === 'off' ? 'shadow-title' : ''}>{sec.title}</h1>
     <p class="dim">{sec.desc}</p>

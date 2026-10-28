@@ -5,6 +5,7 @@ import { createHerd } from './unicorn';
 // 墙上的门是回到 work 的入口 (见 Base.astro 的 .portal)。
 const HORIZON = 108;
 const GATE_X = 140;
+const POOL = { cx: 160, cy: 158, rx: 25, ry: 7 };
 const PAD = 12; // 远景层左右各多画一截，视差移动时不露边
 
 export function createOffScene(): Scene {
@@ -86,13 +87,15 @@ export function createOffScene(): Scene {
   }));
 
   // ---- 独角兽 (行为见 unicorn.ts) ----
-  const herd = createHerd(rnd, W, HORIZON);
+  // 独角兽绕开水潭
+  const herd = createHerd(rnd, W, HORIZON, 5, (x, y) => ((x - POOL.cx) / (POOL.rx + 10)) ** 2 + ((y - POOL.cy) / (POOL.ry + 6)) ** 2 < 1);
 
-  const blades = Array.from({ length: 260 }, () => {
+  const blades0 = Array.from({ length: 260 }, () => {
     const y = HORIZON + 12 + Math.pow(rnd(), 0.9) * (H - HORIZON - 12);
     const near = (y - HORIZON) / (H - HORIZON);
     return { x: rnd() * W, y, h: 1 + near * 2.5 * (0.5 + rnd()), p: rnd() * 6.28, c: rnd(), near };
   });
+  const blades = blades0.filter((b) => ((b.x - POOL.cx) / (POOL.rx + 2)) ** 2 + ((b.y - POOL.cy) / (POOL.ry + 2)) ** 2 > 1);
   const motes = Array.from({ length: 30 }, () => ({
     x: rnd() * W, y: HORIZON + rnd() * (H - HORIZON), vx: (rnd() - 0.5) * 3, vy: -(0.5 + rnd() * 2), p: rnd() * 6.28,
   }));
@@ -118,24 +121,38 @@ export function createOffScene(): Scene {
       ctx.beginPath(); ctx.arc(moonX + 5, moonY - 2, 9, 0, 6.3); ctx.fill();
 
       ctx.drawImage(far.c, Math.round(-PAD - mx * 5), Math.round(-my * 1.5));
-      // 门卫旁的火光 (靠近入口时更亮) + 门洞里透出的光
+      // 门卫旁的火光
       const fl = 0.6 + 0.4 * Math.sin(t * 9) * Math.sin(t * 5.3);
       const fx = GATE_X + 18 - mx * 5, fy = wallTop + 20 - my * 1.5;
-      ctx.fillStyle = `rgba(255,150,60,${(hot ? 0.9 : 0.5) * fl})`;
+      ctx.fillStyle = `rgba(255,150,60,${0.5 * fl})`;
       ctx.fillRect(Math.round(fx), Math.round(fy), 2, 2);
-      ctx.fillStyle = `rgba(255,150,60,${(hot ? 0.14 : 0.06) * fl})`;
-      ctx.beginPath(); ctx.arc(fx + 1, fy + 1, hot ? 14 : 9, 0, 6.3); ctx.fill();
-      if (hot) {
-        // 门洞里透出的暖光：柔和的光晕，而不是一块实心的方块
-        const gx = GATE_X + 7 - mx * 5, gy = wallTop + 16 - my * 1.5;
-        const grad = ctx.createRadialGradient(gx, gy, 1, gx, gy, 16);
-        grad.addColorStop(0, 'rgba(255,190,100,0.35)');
-        grad.addColorStop(1, 'rgba(255,190,100,0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(gx, gy, 16, 0, 6.3); ctx.fill();
-      }
+      ctx.fillStyle = `rgba(255,150,60,${0.06 * fl})`;
+      ctx.beginPath(); ctx.arc(fx + 1, fy + 1, 9, 0, 6.3); ctx.fill();
 
       ctx.drawImage(field.c, 0, 0);
+
+      // 水潭：水面向外一圈圈荡开涟漪；靠近时涟漪更密、更亮 (点击这里进入另一面)
+      {
+        ctx.fillStyle = 'rgba(8,16,32,0.92)';
+        ctx.beginPath(); ctx.ellipse(POOL.cx, POOL.cy, POOL.rx, POOL.ry, 0, 0, 6.3); ctx.fill();
+        ctx.fillStyle = hot ? 'rgba(40,84,128,0.75)' : 'rgba(26,52,86,0.75)';
+        ctx.beginPath(); ctx.ellipse(POOL.cx, POOL.cy, POOL.rx - 3, POOL.ry - 1.5, 0, 0, 6.3); ctx.fill();
+        ctx.lineWidth = 1;
+        const rings = hot ? 4 : 3;
+        for (let k = 0; k < rings; k++) {
+          const ph = reduce ? k / rings : (t * (hot ? 0.7 : 0.32) + k / rings) % 1;
+          ctx.strokeStyle = `rgba(150,190,230,${(1 - ph) * (hot ? 0.6 : 0.32)})`;
+          ctx.beginPath();
+          ctx.ellipse(POOL.cx, POOL.cy, 3 + ph * (POOL.rx - 5), 1 + ph * (POOL.ry - 2), 0, 0, 6.3);
+          ctx.stroke();
+        }
+        // 月光在水面上的碎光
+        ctx.fillStyle = 'rgba(240,235,200,0.55)';
+        for (let k = 0; k < 3; k++) {
+          const gx = POOL.cx - 8 + k * 8 + Math.round(Math.sin(t * 1.3 + k * 2) * 2);
+          if (reduce || Math.sin(t * 2 + k * 1.7) > 0.2) ctx.fillRect(gx, POOL.cy - 1 + (k % 2), 2, 1);
+        }
+      }
 
       for (const f of fogBands) {
         for (let x = 0; x < W; x += 4) {

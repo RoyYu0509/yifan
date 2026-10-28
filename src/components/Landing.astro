@@ -1,6 +1,7 @@
 ---
-// 首页：背景场景 + 一个面板。面板里的简介、联系方式和导航会逐字打出来；
-// 点 × 可以收起面板、看看窗外。进入任何一个栏目后就是没有背景的“房间”。
+// 首页：背景场景 + 一块铺满屏幕 (四周留白) 的面板。
+// 面板顶部是 tab：左边标题，右边导航，最右是展开/收起的箭头。
+// 收起后只剩这条 tab，下面露出整座城市。进入任何一个栏目后就是没有背景的“房间”。
 import Base from '../layouts/Base.astro';
 import { site } from '../data/site';
 import { profile } from '../data/profile';
@@ -16,24 +17,34 @@ const showResume = world === 'work' && !!site.resume;
 <Base world={world} view="landing">
   <section class="window" id="landing" aria-label="intro">
     <div class="bar">
-      <span>~/{site.name.toLowerCase()}</span>
-      <button class="win-close" type="button" aria-label="hide panel" title="看看窗外">×</button>
+      <span class="tab">~/{site.name.toLowerCase()}</span>
+      <nav class="bar-nav" aria-label="pages">
+        {sections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
+        {showResume && <a href={site.resume} target="_blank" rel="noopener">resume ↗</a>}
+      </nav>
+      <button class="win-toggle" type="button" aria-label="collapse panel" aria-expanded="true" title="展开 / 收起">
+        <svg class="up" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10 L8 5 L13 10" /></svg>
+        <svg class="down" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 6 L8 11 L13 6" /></svg>
+      </button>
     </div>
+
     <div class="win-body">
-      {world === 'work' ? (
-        <>
-          <h1 class="who" data-type>{profile.fullName}</h1>
-          <p class="role" data-type>{profile.headline}</p>
-          <p class="edu" data-type>{profile.tagline}</p>
-          <p class="pitch" data-type>{profile.pitch}</p>
-          <p class="contact">
-            {profile.links.map((l) => <a href={l.href} rel="noopener" data-type>{l.label}</a>)}
-            {showResume && <a href={site.resume} target="_blank" rel="noopener" data-type>Resume ↗</a>}
-          </p>
-        </>
-      ) : (
-        <p class="pitch" data-type>{site.bio.off}</p>
-      )}
+      <div class="col-main">
+        {world === 'work' ? (
+          <>
+            <h1 class="who" data-type>{profile.fullName}</h1>
+            <p class="role" data-type>{profile.headline}</p>
+            <p class="edu" data-type>{profile.tagline}</p>
+            <p class="pitch" data-type>{profile.pitch}</p>
+            <p class="contact">
+              {profile.links.map((l) => <a href={l.href} rel="noopener" data-type>{l.label}</a>)}
+              {showResume && <a href={site.resume} target="_blank" rel="noopener" data-type>Resume ↗</a>}
+            </p>
+          </>
+        ) : (
+          <p class="pitch big" data-type>{site.bio.off}</p>
+        )}
+      </div>
 
       <ul class="entrances">
         {sections.map((s, i) => (
@@ -46,23 +57,34 @@ const showResume = world === 'work' && !!site.resume;
           </li>
         ))}
       </ul>
+
+      {world === 'work' && (
+    <ul class="tiles">
+      {profile.highlights.map((h) => (
+        <li><b class="v">{h.v}</b><span class="l">{h.l}</span></li>
+      ))}
+    </ul>
+      )}
     </div>
   </section>
-  <button class="win-reopen" type="button" aria-label="show panel">▤ {world === 'work' ? 'info' : '回到面板'}</button>
 </Base>
-<noscript><style>.window { opacity: 1 !important; transform: none !important; }</style></noscript>
+<noscript><style>.window { opacity: 1 !important; transform: none !important; } .tiles { opacity: 1 !important; }</style></noscript>
 
 <script>
   const root = document.documentElement;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let skip = false;
 
-  // 点 × 收起、点 ▤ 重新打开；点面板本身则跳过打字动画
+  function setCollapsed(on: boolean) {
+    if (on) root.dataset.box = 'closed';
+    else delete root.dataset.box;
+    document.querySelector('.win-toggle')?.setAttribute('aria-expanded', String(!on));
+  }
+
   document.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
-    if (t.closest('.win-close')) root.dataset.box = 'closed';
-    else if (t.closest('.win-reopen')) delete root.dataset.box;
-    else if (t.closest('#landing')) skip = true;
+    if (t.closest('.win-toggle')) setCollapsed(root.dataset.box !== 'closed');
+    else if (t.closest('#landing') && !t.closest('a')) skip = true; // 点面板空白处：跳过打字
   });
   document.addEventListener('astro:after-swap', () => delete root.dataset.box);
 
@@ -76,9 +98,9 @@ const showResume = world === 'work' && !!site.resume;
     try { landed = !!sessionStorage.getItem('landed'); } catch {}
     const els = Array.from(win.querySelectorAll<HTMLElement>('[data-type]'));
 
-    if (landed || reduce) { win.classList.add('open', 'instant'); return; }
+    if (landed || reduce) { win.classList.add('open', 'instant', 'done'); return; }
 
-    // 文字保留在原位，只是“还没打出来的部分”不可见，这样面板的尺寸从一开始就稳定
+    // 文字保留在原位，只是“还没打出来的部分”不可见，这样面板的版式从一开始就是稳定的
     const items = els.map((el) => {
       const text = el.textContent || '';
       el.innerHTML = '<span class="t"></span><span class="r"></span>';
@@ -95,12 +117,12 @@ const showResume = world === 'work' && !!site.resume;
     await (window as unknown as { __titleReady?: Promise<void> }).__titleReady;
     if (cancelled) return;
     win.classList.add('open');
-    await new Promise((r) => setTimeout(r, 450));
+    await new Promise((r) => setTimeout(r, 500));
 
     for (const it of items) {
       if (cancelled) return;
       if (skip) break;
-      const per = Math.min(26, 800 / Math.max(it.text.length, 1));
+      const per = Math.min(24, 700 / Math.max(it.text.length, 1));
       for (let i = 1; i <= it.text.length; i++) {
         if (cancelled || skip) break;
         it.t.textContent = it.text.slice(0, i);
@@ -110,8 +132,8 @@ const showResume = world === 'work' && !!site.resume;
       it.t.textContent = it.text;
       it.r.textContent = '';
     }
-    // 跳过时，把剩下的一次性补全
     for (const it of items) { it.t.textContent = it.text; it.r.textContent = ''; }
+    win.classList.add('done');
     try { sessionStorage.setItem('landed', '1'); } catch {}
   }
   document.addEventListener('astro:page-load', init);

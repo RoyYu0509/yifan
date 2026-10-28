@@ -83,17 +83,31 @@ export function createWorkScene(): Scene {
   ground.x.fillRect(0, GROUND - 16, W, 3);
   for (let x = 6; x < W; x += 34) ground.x.fillRect(x, GROUND - 13, 3, 13);
 
-  // 隧道口 (夜鬼的洞)
-  const tunnel = { x: 148, y: GROUND + 2, w: 30, h: 22 };
-  ground.x.fillStyle = '#010203';
-  ground.x.fillRect(tunnel.x, tunnel.y, tunnel.w, tunnel.h);
-  ground.x.fillRect(tunnel.x + 3, tunnel.y - 3, tunnel.w - 6, 3);
-  ground.x.fillStyle = '#12202a';
-  ground.x.fillRect(tunnel.x - 2, tunnel.y + tunnel.h, tunnel.w + 4, 1);
-  ground.x.fillRect(tunnel.x - 2, tunnel.y - 4, tunnel.w + 4, 1);
-  // 台阶
-  ground.x.fillStyle = '#0a141b';
-  for (let i = 0; i < 4; i++) ground.x.fillRect(tunnel.x + 2 + i * 2, tunnel.y + 14 + i * 2, tunnel.w - 4 - i * 4, 1);
+  // 地下通道的入口：带雨棚的台阶，一路往下 (点击这里进入另一面)
+  const tunnel = { x: 146, y: GROUND + 2, w: 34, h: 22 };
+  {
+    const g = ground.x;
+    g.fillStyle = '#0a141b'; // 立柱
+    g.fillRect(tunnel.x - 2, tunnel.y - 3, 2, tunnel.h + 3);
+    g.fillRect(tunnel.x + tunnel.w, tunnel.y - 3, 2, tunnel.h + 3);
+    g.fillStyle = '#0d1a22'; // 雨棚
+    g.fillRect(tunnel.x - 3, tunnel.y - 7, tunnel.w + 6, 4);
+    g.fillStyle = '#1a2e39';
+    g.fillRect(tunnel.x - 3, tunnel.y - 7, tunnel.w + 6, 1);
+    g.fillStyle = '#010203'; // 开口
+    g.fillRect(tunnel.x, tunnel.y - 3, tunnel.w, tunnel.h + 3);
+    for (let i = 0; i < 6; i++) { // 台阶：越往下越窄、越暗
+      g.fillStyle = i % 2 ? '#0b161d' : '#122029';
+      g.fillRect(tunnel.x + 2 + i * 2, tunnel.y + 6 + i * 2, tunnel.w - 4 - i * 4, 1);
+    }
+    g.fillStyle = '#1d3340'; // 扶手
+    g.fillRect(tunnel.x + 1, tunnel.y - 2, 1, 11);
+    g.fillRect(tunnel.x + tunnel.w - 2, tunnel.y - 2, 1, 11);
+    g.fillStyle = '#12202a';
+    g.fillRect(tunnel.x - 3, tunnel.y + tunnel.h, tunnel.w + 6, 1);
+  }
+  // 入口上方的向下箭头 (5×6)
+  const ARROW = ['..X..', '..X..', '..X..', 'X.X.X', '.XXX.', '..X..'];
 
   const signs = [
     { s: 'SYSTEM', x: 208, y: 70, c: '#5ff0d0', ph: 0 },
@@ -178,20 +192,23 @@ export function createWorkScene(): Scene {
       }
       ctx.globalAlpha = 1;
 
-      // 入口里的眼睛：平时偶尔眨一下，鼠标靠近时一直亮着
+      // 入口：上方一支向下的箭头缓慢呼吸，靠近时变亮；里面偶尔有一对眼睛
       {
         if (t > nextEyes) { eyesUntil = t + 0.5 + rnd() * 1.2; nextEyes = t + 8 + rnd() * 8; }
         const show = hot || (!reduce && t < eyesUntil);
-        // 入口上方的一盏灯，靠近时变亮
-        ctx.fillStyle = hot ? 'rgba(95,240,208,0.55)' : 'rgba(95,240,208,0.18)';
-        ctx.fillRect(tunnel.x + (tunnel.w >> 1) - 1, tunnel.y - 3, 3, 1);
+        const pulse = reduce ? 0.5 : 0.35 + 0.25 * Math.sin(t * 1.6);
+        ctx.fillStyle = `rgba(255,207,112,${hot ? 0.95 : pulse})`;
+        const ax = tunnel.x + (tunnel.w >> 1) - 2, ay = tunnel.y - 17 + (hot ? Math.round(Math.sin(t * 6)) : 0);
+        ARROW.forEach((row, ry) => { for (let rx = 0; rx < 5; rx++) if (row[rx] === 'X') ctx.fillRect(ax + rx, ay + ry, 1, 1); });
+        ctx.fillStyle = hot ? 'rgba(95,240,208,0.6)' : 'rgba(95,240,208,0.2)';
+        ctx.fillRect(tunnel.x + (tunnel.w >> 1) - 2, tunnel.y - 5, 5, 1); // 雨棚下的灯
         if (show) {
           ctx.fillStyle = '#ffcf70';
-          const ex = tunnel.x + 8 + (hot ? 0 : (t * 3) % 2 < 1 ? 0 : 6);
-          ctx.fillRect(ex, tunnel.y + 12, 2, 1);
-          ctx.fillRect(ex + 5, tunnel.y + 12, 2, 1);
+          const ex = tunnel.x + 10 + (hot ? 0 : (t * 3) % 2 < 1 ? 0 : 6);
+          ctx.fillRect(ex, tunnel.y + 4, 2, 1);
+          ctx.fillRect(ex + 5, tunnel.y + 4, 2, 1);
           ctx.fillStyle = 'rgba(255,207,112,0.16)';
-          ctx.fillRect(ex - 1, tunnel.y + 11, 9, 3);
+          ctx.fillRect(ex - 1, tunnel.y + 3, 9, 3);
         }
       }
 
