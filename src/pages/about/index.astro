@@ -32,6 +32,7 @@ import { site } from '../../data/site';
 
   <h3 class="sub">Contact</h3>
   <p class="links2">
+    <span class="mail-text">{profile.email}</span>
     {profile.links.map((l) => <a href={l.href} rel="noopener">{l.label}</a>)}
     {site.resume && <a href={site.resume} target="_blank" rel="noopener">Resume ↗</a>}
   </p>

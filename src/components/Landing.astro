@@ -34,9 +34,18 @@ const showResume = world === 'work' && !!site.resume;
           <>
             <h1 class="who" data-type>{profile.fullName}</h1>
             <p class="role" data-type>{profile.headline}</p>
-            <p class="edu" data-type>{profile.tagline}</p>
-            <p class="pitch" data-type>{profile.pitch}</p>
+            <dl class="intro">
+              {profile.intro.map((i) => (
+                <>
+                  <dt data-type>{i.k}</dt>
+                  <dd data-type>{i.t}</dd>
+                </>
+              ))}
+            </dl>
             <p class="contact">
+              <span class="k" data-type>email</span>
+              <button class="mail" type="button" data-copy={profile.email} title="点击复制" data-type>{profile.email}</button>
+              <span class="copied" aria-live="polite"></span>
               {profile.links.map((l) => <a href={l.href} rel="noopener" data-type>{l.label}</a>)}
               {showResume && <a href={site.resume} target="_blank" rel="noopener" data-type>Resume ↗</a>}
             </p>
@@ -45,30 +54,10 @@ const showResume = world === 'work' && !!site.resume;
           <p class="pitch big" data-type>{site.bio.off}</p>
         )}
       </div>
-
-      <ul class="entrances">
-        {sections.map((s, i) => (
-          <li>
-            <a href={`${base}${pathOf(world, s.slug)}`}>
-              <span class="n" data-type>{`0${i + 1}`}</span>
-              <span class="nm" data-type>{s.label}</span>
-              <span class="ds" data-type>{s.desc}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-
-      {world === 'work' && (
-    <ul class="tiles">
-      {profile.highlights.map((h) => (
-        <li><b class="v">{h.v}</b><span class="l">{h.l}</span></li>
-      ))}
-    </ul>
-      )}
     </div>
   </section>
 </Base>
-<noscript><style>.window { opacity: 1 !important; transform: none !important; } .tiles { opacity: 1 !important; }</style></noscript>
+<noscript><style>.window { opacity: 1 !important; transform: none !important; } </style></noscript>
 
 <script>
   const root = document.documentElement;
@@ -83,7 +72,18 @@ const showResume = world === 'work' && !!site.resume;
 
   document.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
-    if (t.closest('.win-toggle')) setCollapsed(root.dataset.box !== 'closed');
+    const mail = t.closest<HTMLElement>('[data-copy]');
+    if (mail) {
+      const v = mail.dataset.copy || '';
+      const done = () => { const c = document.querySelector<HTMLElement>('.copied'); if (c) { c.textContent = '已复制'; setTimeout(() => (c.textContent = ''), 1600); } };
+      if (navigator.clipboard) navigator.clipboard.writeText(v).then(done, () => {});
+      else {
+        const r = document.createRange(); r.selectNodeContents(mail);
+        const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(r);
+        try { document.execCommand('copy'); done(); } catch {}
+      }
+      skip = true;
+    } else if (t.closest('.win-toggle')) setCollapsed(root.dataset.box !== 'closed');
     else if (t.closest('#landing') && !t.closest('a')) skip = true; // 点面板空白处：跳过打字
   });
   document.addEventListener('astro:after-swap', () => delete root.dataset.box);
@@ -96,7 +96,7 @@ const showResume = world === 'work' && !!site.resume;
 
     let landed = false;
     try { landed = !!sessionStorage.getItem('landed'); } catch {}
-    const els = Array.from(win.querySelectorAll<HTMLElement>('[data-type]'));
+    const els = Array.from(win.querySelectorAll<HTMLElement>('[data-type]')).filter((el) => el.offsetParent !== null);
 
     if (landed || reduce) { win.classList.add('open', 'instant', 'done'); return; }
 

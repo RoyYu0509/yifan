@@ -15,18 +15,18 @@ export const profile = {
   fullName: '余逸凡 · Yifan Yu',
   headline: 'AI Infra · AI 算法优化 · 算法研究',
   tagline: 'NUS 数据科学与机器学习硕士 · 2026',
-  highlights: [
-    { v: '9.4×', l: 'Triton FlashAttention2 较朴素 attention 提速（4K，RTX 3090 Ti）' },
-    { v: '86%', l: '自研 NCCL DDP 双卡扩展效率，追平 PyTorch 官方 DDP' },
-    { v: '70%', l: '自研推理引擎吞吐，对标 SGLang 同功能集（32 并发）' },
-    { v: 'JCP', l: '第一作者：Local CP 不确定性量化方法（J. Comput. Phys.）' },
+  // 首页的个人介绍：三小段，各有一个小标题
+  intro: [
+    { k: '研究', t: '我关心模型的预测什么时候可信。以第一作者在 J. Comput. Phys. 发表了基于 conformal prediction 的不确定性量化方法；也在做能帮研究者找问题、核查问题的 agent 科研系统，目前投稿 ICLR 2027。' },
+    { k: '工程', t: '喜欢把系统拆开再自己搭一遍。最近的项目是不依赖现成框架，从零实现 LLM 的训练与推理全栈，一路做到算子、通信和调度的优化。' },
+    { k: '现在', t: 'NUS 数据科学与机器学习硕士，2026 年毕业；本科在多伦多大学读统计与经济。正在找 AI Infra、AI 算法优化和算法研究方向的机会。' },
   ],
+  email: 'royyu0509@gmail.com',
   pitch: '从零实现 190M 参数 LLM 的训练与推理全栈；以第一作者在 JCP 发表不确定性量化方法；构建并评测 Agent 科研系统（投稿 ICLR 2027）。',
   summary:
     '从零实现 190M 参数 LLM 的模型架构、训练与推理全栈（Triton FA2 较朴素 attention 快 9.4×，DDP 扩展效率 86%，自研推理引擎吞吐达 SGLang 同功能集的 70%）；负责构建并评测 Agent 科研系统（投稿 ICLR 2027）；以第一作者在 JCP 发表机器学习不确定性量化方法。',
   links: [
     { label: 'GitHub', href: 'https://github.com/RoyYu0509' },
-    { label: 'Email', href: 'mailto:royyu0509@gmail.com' },
   ],
 
   projects: [
