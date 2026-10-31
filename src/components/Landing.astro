@@ -13,6 +13,7 @@ const { world } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const sections = await visibleSections(world);
 const showResume = world === 'work' && !!site.resume;
+const resumeHref = `${base}/${site.resume}`;
 ---
 <Base world={world} view="landing">
   <section class="window" id="landing" aria-label="intro">
@@ -20,7 +21,7 @@ const showResume = world === 'work' && !!site.resume;
       <span class="tab">~/{site.name.toLowerCase()}</span>
       <nav class="bar-nav" aria-label="pages">
         {sections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
-        {showResume && <a href={site.resume} target="_blank" rel="noopener">resume ↗</a>}
+        {showResume && <a href={resumeHref} download={site.resumeName} data-astro-reload>resume ↓</a>}
       </nav>
       <button class="win-toggle" type="button" aria-label="collapse panel" aria-expanded="true" title="展开 / 收起">
         <svg class="up" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10 L8 5 L13 10" /></svg>
@@ -47,7 +48,7 @@ const showResume = world === 'work' && !!site.resume;
               <button class="mail" type="button" data-copy={profile.email} title="点击复制" data-type>{profile.email}</button>
               <span class="copied" aria-live="polite"></span>
               {profile.links.map((l) => <a href={l.href} rel="noopener" data-type>{l.label}</a>)}
-              {showResume && <a href={site.resume} target="_blank" rel="noopener" data-type>Resume ↗</a>}
+              {showResume && <a href={resumeHref} download={site.resumeName} data-astro-reload data-type>Resume ↓</a>}
             </p>
           </>
         ) : (

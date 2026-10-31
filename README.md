@@ -7,7 +7,7 @@ Astro 静态站点，部署在 GitHub Pages。
 ```
 src/
   data/profile.ts      个人信息 (简历): 简介 / 项目 / 研究 / 实习 / 教育 / 论文 / 技能
-  data/site.ts         站名、简介、简历 (Google Docs) 链接
+  data/site.ts         站名、简介、简历 PDF 的文件名
   data/worlds.ts       栏目配置 (导航里有哪些栏目)
   data/bgm.ts          背景音乐曲目
   content/posts/*.md   所有文章 (blog / log / docs / daily / reading)
@@ -39,7 +39,7 @@ draft: false     # true 则不发布
 
 **改个人信息**：编辑 `src/data/profile.ts`。
 
-**放简历链接**：把 Google Docs 的分享链接填到 `src/data/site.ts` 的 `resume`（文档需设为“知道链接的任何人都可查看”），首页和导航里会自动出现 Resume 链接。
+**更新简历**：把新的 PDF 命名为 `resume.pdf`，覆盖 `public/resume.pdf`，提交并推送即可。首页右上角的 `resume ↓` 和联系方式里的 `Resume ↓` 点击后直接下载（文件名在 `src/data/site.ts` 的 `resumeName`）。公开前请先去掉手机号、年龄、性别、照片这类信息；`site.resume` 留空则不显示入口。
 
 **页面结构**：首页 (`Landing.astro`) 是背景加一个信息面板；点进任何栏目后是只有内容的阅读页，没有背景。
 

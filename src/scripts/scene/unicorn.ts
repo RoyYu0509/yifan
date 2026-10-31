@@ -69,6 +69,7 @@ export function createHerd(rnd: () => number, W: number, horizon: number, count 
       until: 0,
       sleepy: false,
     };
+    for (let tries = 0; avoid && avoid(b.cx, b.foot) && tries < 30; tries++) b.cx = between(MARGIN + 10, W - MARGIN - 10);
     pickTarget(b);
     return b;
   });
@@ -93,8 +94,10 @@ export function createHerd(rnd: () => number, W: number, horizon: number, count 
         const d = Math.hypot(dx, dy);
         if (d < 1.5) return arrived(b, t);
         const step = Math.min(d, b.speed * dt);
-        b.cx += (dx / d) * step;
-        b.foot += (dy / d) * step * 0.6;
+        const nx = b.cx + (dx / d) * step, nf = b.foot + (dy / d) * step * 0.6;
+        if (avoid && avoid(nx, nf)) { enter(b, 'idle', t, between(1, 2.5)); return; } // 前面是水，停下来，换个方向
+        b.cx = nx;
+        b.foot = nf;
         if (Math.abs(dx) > 0.5) b.dir = dx > 0 ? 1 : -1;
         return;
       }

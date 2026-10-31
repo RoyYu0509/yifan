@@ -2,10 +2,10 @@ import { H, W, clamp, ditherSky, layer, makeRng, mix, type Scene } from './commo
 import { createHerd } from './unicorn';
 
 // off：高墙环绕的小镇，没有指针的钟楼，田野里的独角兽。
-// 墙上的门是回到 work 的入口 (见 Base.astro 的 .portal)。
+// 田野里的小池塘是回到 work 的入口 (见 Base.astro 的 .portal)。
 const HORIZON = 108;
 const GATE_X = 140;
-const POOL = { cx: 160, cy: 158, rx: 25, ry: 7 };
+const POOL = { cx: 192, cy: 154, rx: 23, ry: 7 };
 const PAD = 12; // 远景层左右各多画一截，视差移动时不露边
 
 export function createOffScene(): Scene {
@@ -64,7 +64,7 @@ export function createOffScene(): Scene {
     x.fillStyle = '#5a5848';
     RING.forEach((row, ry) => { for (let rx = 0; rx < 11; rx++) if (row[rx] === 'X') x.fillRect(cx0 + rx, cy0 + ry, 1, 1); });
     x.fillStyle = '#a39e80';
-    for (const [rx, ry] of [[5, 1], [5, 2], [5, 8], [5, 9], [1, 5], [2, 5], [8, 5], [9, 5]]) x.fillRect(cx0 + rx, cy0 + ry, 1, 1);
+    for (const [rx, ry] of [[5, 1], [5, 9], [1, 5], [9, 5]]) x.fillRect(cx0 + rx, cy0 + ry, 1, 1);
     // 窗光
     x.fillStyle = '#e0b857';
     for (const [wx, wy] of [[22, 0], [28, 0], [34, 3], [100, 0], [186, 2], [236, -2], [242, -2]]) x.fillRect(wx + PAD, wallTop + wy, 2, 3);
@@ -88,7 +88,7 @@ export function createOffScene(): Scene {
 
   // ---- 独角兽 (行为见 unicorn.ts) ----
   // 独角兽绕开水潭
-  const herd = createHerd(rnd, W, HORIZON, 5, (x, y) => ((x - POOL.cx) / (POOL.rx + 10)) ** 2 + ((y - POOL.cy) / (POOL.ry + 6)) ** 2 < 1);
+  const herd = createHerd(rnd, W, HORIZON, 5, (x, y) => ((x - POOL.cx) / (POOL.rx + 14)) ** 2 + ((y - POOL.cy) / (POOL.ry + 8)) ** 2 < 1);
 
   const blades0 = Array.from({ length: 260 }, () => {
     const y = HORIZON + 12 + Math.pow(rnd(), 0.9) * (H - HORIZON - 12);
@@ -100,6 +100,59 @@ export function createOffScene(): Scene {
     x: rnd() * W, y: HORIZON + rnd() * (H - HORIZON), vx: (rnd() - 0.5) * 3, vy: -(0.5 + rnd() * 2), p: rnd() * 6.28,
   }));
   const fogBands = Array.from({ length: 4 }, (_, i) => ({ y: HORIZON - 6 + i * 10, sp: 2 + i * 1.5, a: 0.05 + i * 0.012, off: rnd() * 100 }));
+
+  // ---- 池塘：不规则的岸线，逐行上色 + 棋盘抖动，水面映着天光 ----
+  // mask[行] = 这一行水面向左 / 向右伸出多远 (相对池心)
+  const mask: { l: number; r: number }[] = [];
+  for (let dy = -POOL.ry; dy <= POOL.ry; dy++) {
+    const e = Math.sqrt(Math.max(0, 1 - (dy / (POOL.ry + 0.6)) ** 2));
+    const wob = (k: number) => Math.round(Math.sin(dy * 1.3 + k) * 1.6 + Math.sin(dy * 0.5 + k * 2) * 1.2);
+    mask.push({ l: Math.max(3, Math.round(POOL.rx * e) + wob(0)), r: Math.max(3, Math.round(POOL.rx * e) + wob(3)) });
+  }
+  const rowOf = (y: number) => mask[y - POOL.cy + POOL.ry];
+  const inWater = (x: number, y: number) => {
+    const m = rowOf(y);
+    return !!m && x > POOL.cx - m.l && x < POOL.cx + m.r;
+  };
+  const pond = layer();
+  {
+    const g = pond.x;
+    mask.forEach((m, i) => {
+      const y = POOL.cy - POOL.ry + i;
+      const t = i / (mask.length - 1);
+      // 岸：深色的泥，夹着几粒浅色的沙
+      g.fillStyle = '#17130a';
+      g.fillRect(POOL.cx - m.l - 2, y, m.l + m.r + 5, 1);
+      for (let x = POOL.cx - m.l - 2; x < POOL.cx + m.r + 3; x++) {
+        if ((x < POOL.cx - m.l || x > POOL.cx + m.r - 1) && rnd() < 0.3) { g.fillStyle = '#3a2d14'; g.fillRect(x, y, 1, 1); }
+      }
+      // 水：上浅下深，奇偶格交错形成抖动
+      const a = mix('#26406a', '#0b1426', t);
+      const b = mix('#2e4a78', '#101c34', t);
+      for (let x = POOL.cx - m.l + 1; x < POOL.cx + m.r; x++) {
+        g.fillStyle = (x + y) & 1 ? a : b;
+        g.fillRect(x, y, 1, 1);
+      }
+      g.fillStyle = '#070d1a'; // 水边一圈深色
+      g.fillRect(POOL.cx - m.l + 1, y, 1, 1);
+      g.fillRect(POOL.cx + m.r - 1, y, 1, 1);
+    });
+    // 对岸映进水里的一条亮边
+    const top = mask[0];
+    g.fillStyle = '#4a6a9a';
+    g.fillRect(POOL.cx - top.l + 3, POOL.cy - POOL.ry, top.l + top.r - 6, 1);
+    // 睡莲
+    for (const [dx, dy] of [[-10, 2], [9, -2], [-3, 3]]) {
+      const x = POOL.cx + dx, y = POOL.cy + dy;
+      g.fillStyle = '#2d4b2c'; g.fillRect(x, y, 3, 1);
+      g.fillStyle = '#3f6a3a'; g.fillRect(x + 1, y - 1, 2, 1);
+    }
+    g.fillStyle = '#d9a3b4'; g.fillRect(POOL.cx + 10, POOL.cy - 3, 1, 1);
+  }
+  const reeds = [[-1, -2, 7], [-1, 1, 5], [-1, 2, 6], [1, -3, 6], [1, 0, 8], [1, 2, 5]].map(([side, dy, h], i) => {
+    const m = rowOf(POOL.cy + dy);
+    return { x: side < 0 ? POOL.cx - m.l - 2 : POOL.cx + m.r + 1, y: POOL.cy + dy + 1, h, p: i * 1.7 };
+  });
 
   return {
     draw(ctx, t, dt, mx, my, { reduce, calm, hot }) {
@@ -131,26 +184,51 @@ export function createOffScene(): Scene {
 
       ctx.drawImage(field.c, 0, 0);
 
-      // 水潭：水面向外一圈圈荡开涟漪；靠近时涟漪更密、更亮 (点击这里进入另一面)
+      // 池塘：水面慢慢荡开涟漪；靠近时更亮、更密 (点击这里进入另一面)
       {
-        ctx.fillStyle = 'rgba(8,16,32,0.92)';
-        ctx.beginPath(); ctx.ellipse(POOL.cx, POOL.cy, POOL.rx, POOL.ry, 0, 0, 6.3); ctx.fill();
-        ctx.fillStyle = hot ? 'rgba(40,84,128,0.75)' : 'rgba(26,52,86,0.75)';
-        ctx.beginPath(); ctx.ellipse(POOL.cx, POOL.cy, POOL.rx - 3, POOL.ry - 1.5, 0, 0, 6.3); ctx.fill();
-        ctx.lineWidth = 1;
-        const rings = hot ? 4 : 3;
-        for (let k = 0; k < rings; k++) {
-          const ph = reduce ? k / rings : (t * (hot ? 0.7 : 0.32) + k / rings) % 1;
-          ctx.strokeStyle = `rgba(150,190,230,${(1 - ph) * (hot ? 0.6 : 0.32)})`;
-          ctx.beginPath();
-          ctx.ellipse(POOL.cx, POOL.cy, 3 + ph * (POOL.rx - 5), 1 + ph * (POOL.ry - 2), 0, 0, 6.3);
-          ctx.stroke();
+        ctx.drawImage(pond.c, 0, 0);
+        if (hot) {
+          ctx.fillStyle = 'rgba(110,160,220,0.16)';
+          mask.forEach((m, i) => ctx.fillRect(POOL.cx - m.l + 1, POOL.cy - POOL.ry + i, m.l + m.r - 1, 1));
         }
-        // 月光在水面上的碎光
-        ctx.fillStyle = 'rgba(240,235,200,0.55)';
-        for (let k = 0; k < 3; k++) {
-          const gx = POOL.cx - 8 + k * 8 + Math.round(Math.sin(t * 1.3 + k * 2) * 2);
-          if (reduce || Math.sin(t * 2 + k * 1.7) > 0.2) ctx.fillRect(gx, POOL.cy - 1 + (k % 2), 2, 1);
+        // 水面上缓缓滑动的亮线
+        ctx.fillStyle = 'rgba(180,210,245,0.3)';
+        for (let i = 0; i < 7; i++) {
+          const y = POOL.cy - POOL.ry + 1 + ((i * 5 + 2) % (mask.length - 2));
+          const m = rowOf(y);
+          const span = m.l + m.r - 6;
+          const len = 3 + (i % 3) * 2;
+          const x = POOL.cx - m.l + 3 + Math.floor(reduce ? i * 5 : (t * (1.2 + (i % 3) * 0.5) + i * 9) % Math.max(span, 1));
+          const w = Math.min(len, POOL.cx + m.r - 3 - x);
+          if (w > 0) ctx.fillRect(x, y, w, 1);
+        }
+        // 偶尔一闪的碎光
+        ctx.fillStyle = 'rgba(245,236,190,0.75)';
+        for (let k = 0; k < 4; k++) {
+          const gx = POOL.cx - 12 + k * 8 + (k % 2) * 2, gy = POOL.cy - 2 + ((k * 3) % 5);
+          if (inWater(gx, gy) && (reduce ? k < 2 : Math.sin(t * 1.7 + k * 2.3) > 0.8)) ctx.fillRect(gx, gy, 1, 1);
+        }
+        // 涟漪：逐像素描出，不做抗锯齿
+        const rings = hot ? 3 : 2;
+        for (let k = 0; k < rings; k++) {
+          const ph = reduce ? (k + 0.4) / rings : (t * (hot ? 0.5 : 0.22) + k / rings) % 1;
+          const rr = 2 + ph * (POOL.rx - 3), ry = 1 + ph * (POOL.ry - 1);
+          ctx.fillStyle = `rgba(190,220,250,${(1 - ph) * (hot ? 0.65 : 0.4)})`;
+          const n = Math.round((rr + ry) * 3);
+          for (let i = 0; i < n; i++) {
+            const ang = (i / n) * 6.2832;
+            const px = Math.round(POOL.cx + Math.cos(ang) * rr), py = Math.round(POOL.cy + Math.sin(ang) * ry);
+            if (inWater(px, py)) ctx.fillRect(px, py, 1, 1);
+          }
+        }
+        // 岸边的芦苇
+        for (const r of reeds) {
+          const sw = reduce ? 0 : Math.round(Math.sin(t * 1.1 + r.p) * 0.9);
+          ctx.fillStyle = '#4a4420';
+          ctx.fillRect(r.x, r.y - r.h, 1, r.h);
+          ctx.fillRect(r.x + sw, r.y - r.h - 1, 1, 1);
+          ctx.fillStyle = '#7a5226'; // 蒲棒
+          ctx.fillRect(r.x + sw, r.y - r.h - 3, 1, 2);
         }
       }
 

@@ -74,7 +74,7 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.s
         </a>
         <nav class="nav">
           {navSections.map((s) => <a href={`${base}${pathOf(world, s.slug)}`}>{s.label}</a>)}
-          {world === 'work' && site.resume && <a href={site.resume} target="_blank" rel="noopener">resume ↗</a>}
+          {world === 'work' && site.resume && <a href={`${base}/${site.resume}`} download={site.resumeName} data-astro-reload>resume ↓</a>}
         </nav>
       </header>
       )}

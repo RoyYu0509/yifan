@@ -26,12 +26,9 @@ export const worlds: Record<WorldId, World> = {
     prefix: '',
     other: 'off',
     sections: [
-      { slug: 'projects', label: 'projects', title: 'Projects', desc: '从零搭建的系统与工具' },
-      { slug: 'research', label: 'research', title: 'Research', desc: '论文与研究项目' },
       { slug: 'blog', label: 'blog', title: 'Blog', desc: '文章与想法', kind: 'blog' },
       { slug: 'log', label: 'log', title: '学习日志', desc: '每天学了什么', kind: 'log' },
       { slug: 'docs', label: 'docs', title: 'Docs', desc: '技术文档与分享', kind: 'docs' },
-      { slug: 'about', label: 'about', title: 'About', desc: '教育、论文与技能' },
     ],
   },
   off: {

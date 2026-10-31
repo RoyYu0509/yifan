@@ -234,7 +234,7 @@ a { color: inherit; text-decoration: none; }
 }
 .portal:focus-visible { outline: 1px dashed var(--accent); outline-offset: 4px; }
 :root[data-world='work'] .portal { --px: 160; --py: 132; --pw: 34; --ph: 16; }
-:root[data-world='off'] .portal { --px: 130; --py: 146; --pw: 60; --ph: 26; }
+:root[data-world='off'] .portal { --px: 166; --py: 144; --pw: 52; --ph: 20; }
 
 /* ---------- 首页 ---------- */
 .home { margin-top: 26px; max-width: 520px; }
