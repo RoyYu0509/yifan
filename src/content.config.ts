@@ -15,4 +15,9 @@ const posts = defineCollection({
   }),
 });
 
-export const collections = { posts };
+// 首页面板里的文字：src/content/home/work.md 和 off.md，直接用 Markdown 写。
+const home = defineCollection({
+  loader: glob({ pattern: '*.md', base: './src/content/home' }),
+});
+
+export const collections = { posts, home };

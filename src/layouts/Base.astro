@@ -130,6 +130,34 @@ const fullTitle = title ? `${title} · ${site.name}` : `${site.name} · ${site.s
       document.addEventListener('focusout', hot(false));
       document.addEventListener('astro:before-swap', () => delete root.dataset.hot);
 
+      // Markdown 里指向本站的链接 / 图片可以直接写成 /xxx：这里补上 base (项目站点的 /<repo> 前缀)；
+      // 指向 .pdf 的链接设为点击即下载。
+      const prefix = import.meta.env.BASE_URL.replace(/\/$/, '');
+      function fixMarkdownLinks() {
+        // 邮箱只当文字显示 (很多人没有配置邮件客户端，点了没有反应)，不做成 mailto 链接
+        document.querySelectorAll<HTMLAnchorElement>('.md a[href^="mailto:"], .prose a[href^="mailto:"]').forEach((a) => {
+          const sp = document.createElement('span');
+          sp.className = 'mail';
+          sp.textContent = a.textContent;
+          a.replaceWith(sp);
+        });
+        document.querySelectorAll<HTMLAnchorElement>('.md a[href^="/"], .prose a[href^="/"]').forEach((a) => {
+          let h = a.getAttribute('href')!;
+          if (h.startsWith('//')) return;
+          if (prefix && !h.startsWith(prefix + '/')) { h = prefix + h; a.setAttribute('href', h); }
+          if (/\.pdf$/i.test(h.split('?')[0])) {
+            a.setAttribute('download', /(^|\/)resume\.pdf$/i.test(h) ? 'Yifan_Yu_Resume.pdf' : '');
+            a.setAttribute('data-astro-reload', '');
+          }
+        });
+        document.querySelectorAll<HTMLImageElement>('.md img[src^="/"], .prose img[src^="/"]').forEach((im) => {
+          const s = im.getAttribute('src')!;
+          if (!s.startsWith('//') && prefix && !s.startsWith(prefix + '/')) im.setAttribute('src', prefix + s);
+        });
+      }
+      document.addEventListener('astro:page-load', fixMarkdownLinks);
+      fixMarkdownLinks();
+
       console.log('%c墙很高，门已经关上了。', 'color:#e8d9a8');
     </script>
   </body>

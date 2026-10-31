@@ -280,16 +280,6 @@ export function createWorkScene(): Scene {
     }
     g.fillStyle = 'rgba(214,196,130,0.18)';
     g.fillRect(0, ROAD + 2, W, 1);
-    // 斑马线：条纹垂直于路，越靠近观察者越宽
-    for (let i = 0; i < 7; i++) {
-      for (let y = ROAD + 3; y < H; y++) {
-        const k = (y - ROAD) / (H - ROAD);
-        const x0 = 232 + i * 9 + (i - 3) * k * 0.8;
-        g.fillStyle = 'rgba(200,215,220,0.11)';
-        g.fillRect(Math.round(x0), y, 4 + Math.round(k * 2), 1);
-      }
-    }
-
     // 下水口：马路牙子侧面的开口 + 路面上的格栅
     g.fillStyle = '#010204';
     g.fillRect(DRAIN.x, CURB_TOP + 1, DRAIN.w, 4);
@@ -470,10 +460,11 @@ export function createWorkScene(): Scene {
         const len = LAMP_TOP + 2;
         for (let y = ROAD; y < WALK_END + (WALK_END - len); y++) {
           const f = (y - ROAD) / (WALK_END + (WALK_END - len) - ROAD);
-          const wob = reduce ? 0 : Math.sin(t * 2.2 + y * 0.8);
-          const w = 1 + Math.round(f * 2 + wob * 0.6);
-          ctx.fillStyle = `rgba(255,214,150,${(0.05 + f * 0.2) * k * glow})`;
-          ctx.fillRect(hx - (w >> 1), y, w, 1);
+          if ((y + (reduce ? 0 : Math.floor(t * 2.5))) % 3 === 0) continue; // 水面的起伏把倒影切成断断续续的碎光
+          const wob = reduce ? 0 : Math.sin(t * 2.2 + y * 1.7);
+          const w = 2 + Math.round(f * 3 + wob * 1.2);
+          ctx.fillStyle = `rgba(255,214,150,${(0.04 + f * 0.17) * k * glow})`;
+          ctx.fillRect(hx - (w >> 1) + (y % 2), y, w, 1);
         }
         const hy = WALK_END + (WALK_END - len);
         ctx.fillStyle = `rgba(255,226,170,${0.38 * k * glow})`;

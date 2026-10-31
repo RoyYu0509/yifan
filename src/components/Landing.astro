@@ -4,7 +4,7 @@
 // 收起后只剩这条 tab，下面露出整座城市。进入任何一个栏目后就是没有背景的“房间”。
 import Base from '../layouts/Base.astro';
 import { site } from '../data/site';
-import { profile } from '../data/profile';
+import { getEntry, render } from 'astro:content';
 import { visibleSections } from '../data/nav';
 import { pathOf, type WorldId } from '../data/worlds';
 
@@ -13,6 +13,8 @@ const { world } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const sections = await visibleSections(world);
 const showResume = world === 'work' && !!site.resume;
+const entry = (await getEntry('home', world))!;
+const { Content } = await render(entry);
 const resumeHref = `${base}/${site.resume}`;
 ---
 <Base world={world} view="landing">
@@ -29,32 +31,9 @@ const resumeHref = `${base}/${site.resume}`;
       </button>
     </div>
 
+    <!-- 面板里的文字来自 src/content/home/<world>.md，直接用 Markdown 写 -->
     <div class="win-body">
-      <div class="col-main">
-        {world === 'work' ? (
-          <>
-            <h1 class="who" data-type>{profile.fullName}</h1>
-            <p class="role" data-type>{profile.headline}</p>
-            <dl class="intro">
-              {profile.intro.map((i) => (
-                <>
-                  <dt data-type>{i.k}</dt>
-                  <dd data-type>{i.t}</dd>
-                </>
-              ))}
-            </dl>
-            <p class="contact">
-              <span class="k" data-type>email</span>
-              <button class="mail" type="button" data-copy={profile.email} title="点击复制" data-type>{profile.email}</button>
-              <span class="copied" aria-live="polite"></span>
-              {profile.links.map((l) => <a href={l.href} rel="noopener" data-type>{l.label}</a>)}
-              {showResume && <a href={resumeHref} download={site.resumeName} data-astro-reload data-type>Resume ↓</a>}
-            </p>
-          </>
-        ) : (
-          <p class="pitch big" data-type>{site.bio.off}</p>
-        )}
-      </div>
+      <div class="md"><Content /></div>
     </div>
   </section>
 </Base>
@@ -63,7 +42,6 @@ const resumeHref = `${base}/${site.resume}`;
 <script>
   const root = document.documentElement;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let skip = false;
 
   function setCollapsed(on: boolean) {
     if (on) root.dataset.box = 'closed';
@@ -72,20 +50,7 @@ const resumeHref = `${base}/${site.resume}`;
   }
 
   document.addEventListener('click', (e) => {
-    const t = e.target as HTMLElement;
-    const mail = t.closest<HTMLElement>('[data-copy]');
-    if (mail) {
-      const v = mail.dataset.copy || '';
-      const done = () => { const c = document.querySelector<HTMLElement>('.copied'); if (c) { c.textContent = '已复制'; setTimeout(() => (c.textContent = ''), 1600); } };
-      if (navigator.clipboard) navigator.clipboard.writeText(v).then(done, () => {});
-      else {
-        const r = document.createRange(); r.selectNodeContents(mail);
-        const sel = getSelection(); sel?.removeAllRanges(); sel?.addRange(r);
-        try { document.execCommand('copy'); done(); } catch {}
-      }
-      skip = true;
-    } else if (t.closest('.win-toggle')) setCollapsed(root.dataset.box !== 'closed');
-    else if (t.closest('#landing') && !t.closest('a')) skip = true; // 点面板空白处：跳过打字
+    if ((e.target as HTMLElement).closest('.win-toggle')) setCollapsed(root.dataset.box !== 'closed');
   });
   document.addEventListener('astro:after-swap', () => delete root.dataset.box);
 
@@ -93,48 +58,11 @@ const resumeHref = `${base}/${site.resume}`;
     const win = document.getElementById('landing');
     if (!win || win.dataset.init) return;
     win.dataset.init = '1';
-    skip = false;
-
     let landed = false;
     try { landed = !!sessionStorage.getItem('landed'); } catch {}
-    const els = Array.from(win.querySelectorAll<HTMLElement>('[data-type]')).filter((el) => el.offsetParent !== null);
-
     if (landed || reduce) { win.classList.add('open', 'instant', 'done'); return; }
-
-    // 文字保留在原位，只是“还没打出来的部分”不可见，这样面板的版式从一开始就是稳定的
-    const items = els.map((el) => {
-      const text = el.textContent || '';
-      el.innerHTML = '<span class="t"></span><span class="r"></span>';
-      const t = el.firstElementChild as HTMLElement;
-      const r = el.lastElementChild as HTMLElement;
-      r.textContent = text;
-      r.style.visibility = 'hidden';
-      return { text, t, r };
-    });
-
-    let cancelled = false;
-    document.addEventListener('astro:before-swap', () => { cancelled = true; }, { once: true });
-
-    await (window as unknown as { __titleReady?: Promise<void> }).__titleReady;
-    if (cancelled) return;
-    win.classList.add('open');
-    await new Promise((r) => setTimeout(r, 500));
-
-    for (const it of items) {
-      if (cancelled) return;
-      if (skip) break;
-      const per = Math.min(24, 700 / Math.max(it.text.length, 1));
-      for (let i = 1; i <= it.text.length; i++) {
-        if (cancelled || skip) break;
-        it.t.textContent = it.text.slice(0, i);
-        it.r.textContent = it.text.slice(i);
-        await new Promise((r) => setTimeout(r, per));
-      }
-      it.t.textContent = it.text;
-      it.r.textContent = '';
-    }
-    for (const it of items) { it.t.textContent = it.text; it.r.textContent = ''; }
-    win.classList.add('done');
+    await (window as unknown as { __titleReady?: Promise<void> }).__titleReady; // 等标题卡退场，面板再浮出来
+    win.classList.add('open', 'done');
     try { sessionStorage.setItem('landed', '1'); } catch {}
   }
   document.addEventListener('astro:page-load', init);

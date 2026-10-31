@@ -6,7 +6,8 @@ Astro 静态站点，部署在 GitHub Pages。
 
 ```
 src/
-  data/profile.ts      个人信息 (简历): 简介 / 项目 / 研究 / 实习 / 教育 / 论文 / 技能
+  content/home/*.md    首页面板里的文字 (work.md / off.md)，直接用 Markdown 写
+  data/profile.ts      简历数据 (目前页面没用到，留作备用)
   data/site.ts         站名、简介、简历 PDF 的文件名
   data/worlds.ts       栏目配置 (导航里有哪些栏目)
   data/bgm.ts          背景音乐曲目
@@ -38,6 +39,8 @@ draft: false     # true 则不发布
 某个栏目第一次有文章后，导航里才会出现它。
 
 **改个人信息**：编辑 `src/data/profile.ts`。
+
+**改首页的文字**：编辑 `src/content/home/work.md`（work 面）和 `off.md`（off 面），用 Markdown 写，推送后网页自动更新。内容比面板高时，面板里可以上下滚动。指向本站文件的链接写成 `/resume.pdf` 这样即可（部署时自动补前缀）；指向 `.pdf` 的链接点击后直接下载；邮箱只当文字显示。图片放进 `public/`，用 `![说明](/xxx.png)` 引用。
 
 **更新简历**：把新的 PDF 命名为 `resume.pdf`，覆盖 `public/resume.pdf`，提交并推送即可。首页右上角的 `resume ↓` 和联系方式里的 `Resume ↓` 点击后直接下载（文件名在 `src/data/site.ts` 的 `resumeName`）。公开前请先去掉手机号、年龄、性别、照片这类信息；`site.resume` 留空则不显示入口。
 

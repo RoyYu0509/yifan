@@ -428,33 +428,42 @@ a { color: inherit; text-decoration: none; }
   line-height: 1.75;
   transition: opacity 0.35s;
 }
-.who { font-weight: 400; font-size: clamp(28px, 4.2vw, 46px); letter-spacing: 0.06em; color: var(--ink); line-height: 1.25; }
-.role { margin-top: 4px; font-family: var(--font-pixel); font-size: clamp(22px, 2.6vw, 30px); color: var(--accent); letter-spacing: 0.04em; }
-.edu { color: var(--ink-dim); font-size: 16px; }
-.pitch { margin-top: 18px; color: var(--ink); max-width: 60ch; }
-.pitch.big { font-size: clamp(20px, 2.4vw, 28px); margin-top: 6px; }
-.contact { margin-top: clamp(20px, 4vh, 40px); display: flex; flex-wrap: wrap; gap: 4px 20px; font-family: var(--font-pixel); font-size: 22px; }
-.contact a { color: var(--accent); border-bottom: 1px dashed var(--accent); }
+.md { max-width: 900px; }
+.md > * + * { margin-top: 1em; }
+.md h1 { font-weight: 400; font-size: clamp(28px, 4.2vw, 46px); letter-spacing: 0.06em; color: var(--ink); line-height: 1.25; }
+.md h2 { margin-top: 1.8em; font-family: var(--font-pixel); font-weight: 400; font-size: 26px; letter-spacing: 0.06em; color: var(--accent); line-height: 1.3; }
+.md h3 { margin-top: 1.5em; font-family: var(--font-pixel); font-weight: 400; font-size: 22px; letter-spacing: 0.05em; color: var(--ink); }
+.md h1 + p { margin-top: 6px; font-family: var(--font-pixel); font-size: clamp(22px, 2.6vw, 30px); color: var(--accent); letter-spacing: 0.04em; line-height: 1.4; }
+.md p, .md li { color: var(--ink); }
+.md a { color: var(--accent); border-bottom: 1px dashed var(--accent); }
+.md a:hover, .md a:focus-visible { background: var(--accent-soft); outline: none; }
+.md .mail, .prose .mail { color: var(--accent); user-select: all; }
+.md strong { font-weight: 700; }
+.md em { font-style: italic; }
+.md ul, .md ol { padding-left: 1.5em; }
+.md li + li { margin-top: 0.3em; }
+.md blockquote { border-left: 2px solid var(--accent); padding: 2px 0 2px 14px; color: var(--ink-dim); }
+.md code { font-family: var(--font-pixel); font-size: 1.1em; background: var(--accent-soft); padding: 0 4px; }
+.md pre { background: rgba(0, 0, 0, 0.5); border: 1px solid var(--line); padding: 10px 14px; overflow-x: auto; line-height: 1.45; }
+.md pre code { background: none; padding: 0; }
+.md hr { border: none; border-top: 1px solid var(--line); margin: 1.6em 0; }
+.md img { max-width: 100%; height: auto; image-rendering: auto; border: 1px solid var(--line); }
+.md table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+.md th, .md td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+.md th { color: var(--accent); font-weight: 400; font-family: var(--font-pixel); }
 
-.col-main { max-width: 980px; }
-.intro { margin-top: clamp(16px, 3.4vh, 36px); display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: clamp(12px, 2.4vh, 26px) clamp(14px, 2vw, 28px); }
-.intro dt { font-family: var(--font-pixel); font-size: 22px; line-height: 1.7; color: var(--accent); letter-spacing: 0.08em; }
-.intro dd { font-size: clamp(16px, 1.55vw, 20px); line-height: 1.85; color: var(--ink); max-width: 46em; }
-.contact { align-items: baseline; }
-.contact .k { color: var(--ink-dim); }
-.contact .mail { all: unset; cursor: copy; color: var(--accent); border-bottom: 1px dashed var(--accent); font-family: var(--font-pixel); font-size: 22px; user-select: all; }
-.contact .mail:hover, .contact .mail:focus-visible { background: var(--accent-soft); }
-.contact .copied { font-family: var(--font-pixel); font-size: 18px; color: var(--ink-dim); min-width: 3.5em; }
+/* 面板里的滚动条：细一点，和整体的像素风格一致 */
+.win-body { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.win-body::-webkit-scrollbar { width: 8px; }
+.win-body::-webkit-scrollbar-thumb { background: var(--line); }
+.win-body::-webkit-scrollbar-track { background: transparent; }
 
 /* 底部的控件固定在面板下方的空地里 */
 :root[data-view='landing'] .footbar { position: fixed; left: var(--gap); right: var(--gap); bottom: 14px; margin: 0; padding: 0; z-index: 12; }
 
 @media (max-width: 820px) {
   :root { --win-top: 12px; --win-bottom: 54px; }
-  .intro { grid-template-columns: 1fr; gap: 2px 0; }
-  .intro dd { margin-bottom: 14px; }
   .window .bar { gap: 8px; font-size: 18px; padding-left: 12px; }
-  .role { font-size: 19px; }
   .bar-nav { gap: 12px; }
   .win-toggle { margin-left: auto; }
 }
@@ -527,19 +536,15 @@ a { color: inherit; text-decoration: none; }
 /* ---------- 切换另一面时的过渡：往下走进地下通道 / 潜入水潭 ---------- */
 .title-card.wipe-down { transition: none; opacity: 1; clip-path: inset(0 0 100% 0); }
 .title-card.wipe-down.run { clip-path: inset(0 0 0 0); transition: clip-path 1s steps(14, end); }
-.title-card.ripple {
-  transition: none;
-  opacity: 1;
-  background: repeating-radial-gradient(circle at var(--ox, 50%) var(--oy, 50%), #0c2742 0 18px, #05121f 18px 36px);
-  clip-path: circle(0 at var(--ox, 50%) var(--oy, 50%));
-}
-.title-card.ripple.run { clip-path: circle(150vmax at var(--ox, 50%) var(--oy, 50%)); transition: clip-path 1.15s cubic-bezier(0.5, 0.05, 0.3, 1); }
+.title-card #tc-dive { display: none; opacity: 1; mix-blend-mode: normal; }
+.title-card.ripple { transition: none; opacity: 1; background: transparent; }
+.title-card.ripple #tc-dive { display: block; }
 
 /* ---------- 返回键 ---------- */
 .back { display: inline-block; margin-bottom: 14px; font-family: var(--font-pixel); font-size: 20px; letter-spacing: 0.04em; color: var(--ink-dim); }
 .back:hover, .back:focus-visible { color: var(--accent); outline: none; }
 
-.title-card.wipe-down canvas, .title-card.ripple canvas { display: none; }
+.title-card.wipe-down canvas, .title-card.ripple #tc-static { display: none; }
 
 /* off 的面板：更透一点，让月亮和田野从后面透出来；顶沿是一排城垛 */
 :root[data-world='off'] .window { --win-bg: rgba(8, 10, 17, 0.78); backdrop-filter: none; }
